@@ -3,37 +3,25 @@ import time
 import logging
 import configparser
 import threading
-import os
-
-script_dir = os.path.dirname(os.path.abspath(__file__))
-logs_dir = os.path.join(script_dir, 'logs')
-os.makedirs(logs_dir, exist_ok=True)
 
 logging.basicConfig(
-    filename=os.path.join(logs_dir, "automator-controller.log"),
+    filename="logs/automator-controller.log",
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
-config_path = os.path.join(script_dir, 'general.conf')
 config = configparser.ConfigParser()
-config.read(config_path)
-
-def get_absolute_path(path):
-    if not os.path.isabs(path):
-        return os.path.normpath(os.path.join(script_dir, path))
-    else:
-        return os.path.normpath(path)
+config.read('general.conf')
 
 SLEEP_GET_CHANNELS_AND_AUTOFEE = int(config.get('Automation', 'sleep_get_channels_and_autofee'))
 SLEEP_GET_CLOSED_CHANNELS = int(config.get('Automation', 'sleep_get_closed_channels'))
 SLEEP_REBALANCER = int(config.get('Automation', 'sleep_rebalancer'))
 
-GET_CHANNELS_SCRIPT = get_absolute_path(config.get('Paths', 'get_channels_script'))
-AUTO_FEE_SCRIPT = get_absolute_path(config.get('Paths', 'autofee_script'))
-GET_CLOSED_CHANNELS_SCRIPT = get_absolute_path(config.get('Paths', 'get_closed_channels_script'))
-REBALANCER_SCRIPT = get_absolute_path(config.get('Paths', 'rebalancer_script'))
-CLOSE_CHANNEL_SCRIPT = get_absolute_path(config.get('Paths', 'close_channel_script'))
+GET_CHANNELS_SCRIPT = config.get('Paths', 'get_channels_script')
+AUTO_FEE_SCRIPT = config.get('Paths', 'autofee_script')
+GET_CLOSED_CHANNELS_SCRIPT = config.get('Paths', 'get_closed_channels_script')
+REBALANCER_SCRIPT = config.get('Paths', 'rebalancer_script')
+CLOSE_CHANNEL_SCRIPT = config.get('Paths', 'close_channel_script')
 
 ENABLE_GET_CHANNELS_AND_AUTOFEE = config.getboolean('Control', 'enable_get_channels_and_autofee')
 ENABLE_GET_CLOSED_CHANNELS = config.getboolean('Control', 'enable_get_closed_channels')
