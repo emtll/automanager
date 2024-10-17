@@ -9,6 +9,8 @@ config = configparser.ConfigParser()
 config.read(config_file_path)
 
 def expand_path(path):
+    if not os.path.isabs(path):
+        return os.path.join(os.path.expanduser("~"), path)
     return os.path.expanduser(path)
 
 BOS_PATH = expand_path(config['Paths']['bos_path'])
@@ -27,9 +29,13 @@ def issue_bos_command(peer_pubkey, update_fee):
     os.system(command)
 
 def days_since_last_activity(last_activity):
-    if last_activity is None:
+    if last_activity is None or last_activity == '':
         return float('inf')
-    return (datetime.now() - datetime.strptime(last_activity, '%Y-%m-%d %H:%M:%S')).days
+    if isinstance(last_activity, int):
+        last_activity_date = datetime.fromtimestamp(last_activity)
+    else:
+        last_activity_date = datetime.strptime(last_activity, '%Y-%m-%d %H:%M:%S')
+    return (datetime.now() - last_activity_date).days
 
 def calculate_new_fee(total_cost_ppm):
     return int(total_cost_ppm / 0.8)  # Adds 20% margin
@@ -77,6 +83,7 @@ def adjust_sink_fee(channel):
     last_rebalance = channel[29]     # last_rebalance
     last_outgoing = channel[27]      # last_outgoing_activity
 
+    # Ajuste para lidar com None e valores adequados
     if outbound_ratio <= 10.0 and days_since_last_activity(last_rebalance) >= 2 and local_fee_rate < MAX_FEE_THRESHOLD:
         return int(local_fee_rate * 1.05)  # Fee Increase 5%
     elif outbound_ratio <= 10.0 and days_since_last_activity(last_rebalance) < 2 and local_fee_rate < MAX_FEE_THRESHOLD:
