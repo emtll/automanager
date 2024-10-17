@@ -40,12 +40,15 @@ ENABLE_GET_CLOSED_CHANNELS = config.getboolean('Control', 'enable_get_closed_cha
 ENABLE_REBALANCER = config.getboolean('Control', 'enable_rebalancer')
 ENABLE_CLOSE_CHANNEL = config.getboolean('Control', 'enable_close_channel')
 
+db_lock = threading.Lock()
+
 def run_script_independently(script_name, sleep_time):
     while True:
         try:
-            logging.info(f"Executing {script_name}")
-            subprocess.run(['python3', script_name], check=True)
-            logging.info(f"{script_name} executed successfully.")
+            with db_lock:
+                logging.info(f"Executing {script_name}")
+                subprocess.run(['python3', script_name], check=True)
+                logging.info(f"{script_name} executed successfully.")
         except subprocess.CalledProcessError as e:
             logging.error(f"Error executing {script_name}: {e}")
         except Exception as e:
@@ -66,14 +69,14 @@ def run_close_channel():
 def run_get_channels_and_autofee():
     while True:
         try:
-            logging.info(f"Executing {GET_CHANNELS_SCRIPT}")
-            subprocess.run(['python3', GET_CHANNELS_SCRIPT], check=True)
-            logging.info(f"{GET_CHANNELS_SCRIPT} executed successfully.")
+            with db_lock:
+                logging.info(f"Executing {GET_CHANNELS_SCRIPT}")
+                subprocess.run(['python3', GET_CHANNELS_SCRIPT], check=True)
+                logging.info(f"{GET_CHANNELS_SCRIPT} executed successfully.")
 
-            logging.info(f"Executing {AUTO_FEE_SCRIPT}")
-            subprocess.run(['python3', AUTO_FEE_SCRIPT], check=True)
-            logging.info(f"{AUTO_FEE_SCRIPT} executed successfully.")
-
+                logging.info(f"Executing {AUTO_FEE_SCRIPT}")
+                subprocess.run(['python3', AUTO_FEE_SCRIPT], check=True)
+                logging.info(f"{AUTO_FEE_SCRIPT} executed successfully.")
         except subprocess.CalledProcessError as e:
             logging.error(f"Error executing {GET_CHANNELS_SCRIPT} or {AUTO_FEE_SCRIPT}: {e}")
         except Exception as e:

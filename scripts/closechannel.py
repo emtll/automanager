@@ -12,6 +12,8 @@ config = configparser.ConfigParser()
 config.read(config_file_path)
 
 def expand_path(path):
+    if not os.path.isabs(path):
+        return os.path.join(os.path.expanduser("~"), path)
     return os.path.expanduser(path)
 
 user_path = os.path.expanduser("~")

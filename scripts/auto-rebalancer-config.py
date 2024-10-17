@@ -50,7 +50,6 @@ def get_channels_data(conn):
     return cursor.fetchall()
 
 def main():
-    # Carrega a configuração do regolancer
     regolancer_config = load_json(REGOLANCER_JSON_PATH)
     conn = connect_db()
     channels_data = get_channels_data(conn)

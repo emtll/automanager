@@ -19,10 +19,10 @@ DB_PATH = expand_path(config['Paths']['db_path'])
 MEMPOOL_API_URL_BASE = config['API']['mempool_api_url_base']
 
 def connect_db():
-    return sqlite3.connect(LNDG_DB_PATH)
+    return sqlite3.connect(LNDG_DB_PATH, timeout=30)
 
 def connect_new_db():
-    return sqlite3.connect(DB_PATH)
+    return sqlite3.connect(DB_PATH, timeout=30)
 
 def create_closed_channels_table(conn):
     cursor = conn.cursor()

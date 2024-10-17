@@ -44,7 +44,7 @@ def is_excluded(pubkey, exclusion_list):
     return pubkey in [entry['pubkey'] for entry in exclusion_list]
 
 def fee_change_checker(chan_id, table_name):
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=30)
     cursor = conn.cursor()
     time_limit = datetime.now() - timedelta(seconds=SLEEP_GET_CHANNELS_AND_AUTOFEE)
     

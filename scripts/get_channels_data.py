@@ -21,11 +21,11 @@ ROUTER_FACTOR = float(config['Get_channels_data']['router_factor'])
 MEMPOOL_API_URL_BASE = config['API']['mempool_api_url_base']
 
 def connect_db():
-    conn = sqlite3.connect(LNDG_DB_PATH)
+    conn = sqlite3.connect(LNDG_DB_PATH, timeout=30)
     return conn
 
 def connect_new_db():
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=30)
     return conn
 
 def create_personalized_table(conn, PERIOD):
