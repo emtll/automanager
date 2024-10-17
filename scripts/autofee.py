@@ -83,7 +83,6 @@ def adjust_sink_fee(channel):
     last_rebalance = channel[29]     # last_rebalance
     last_outgoing = channel[27]      # last_outgoing_activity
 
-    # Ajuste para lidar com None e valores adequados
     if outbound_ratio <= 10.0 and days_since_last_activity(last_rebalance) >= 2 and local_fee_rate < MAX_FEE_THRESHOLD:
         return int(local_fee_rate * 1.05)  # Fee Increase 5%
     elif outbound_ratio <= 10.0 and days_since_last_activity(last_rebalance) < 2 and local_fee_rate < MAX_FEE_THRESHOLD:
