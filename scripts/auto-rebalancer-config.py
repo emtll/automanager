@@ -2,6 +2,7 @@ import json
 import subprocess
 import configparser
 import os
+import sqlite3 
 
 config_file_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'general.conf'))
 config = configparser.ConfigParser()
@@ -13,7 +14,7 @@ def expand_path(path):
     return os.path.expanduser(path)
 
 REGOLANCER_JSON_PATH = expand_path(config['Paths']['regolancer_json_path'])
-CHANNELS_DATA_PATH = expand_path(config['Paths']['json_channels_path'])
+DB_PATH = expand_path(config['Paths']['db_path'])
 EXCLUDED_PEERS_PATH = expand_path(config['Paths']['excluded_peers_path'])
 SERVICE_NAME = config['AutoRebalancer']['regolancer-controller_service']
 
@@ -35,21 +36,37 @@ def save_json(file_path, data):
 def has_list_changed(old_list, new_list):
     return set(old_list) != set(new_list)
 
+def connect_db():
+    conn = sqlite3.connect(DB_PATH)
+    return conn
+
+def get_channels_data(conn):
+    cursor = conn.cursor()
+    query = """
+    SELECT chan_id, pubkey, tag
+    FROM opened_channels_lifetime
+    """
+    cursor.execute(query)
+    return cursor.fetchall()
+
 def main():
+    # Carrega a configuração do regolancer
     regolancer_config = load_json(REGOLANCER_JSON_PATH)
-    channels_data = load_json(CHANNELS_DATA_PATH)
+    conn = connect_db()
+    channels_data = get_channels_data(conn)
+    conn.close()
     excluded_peers = load_json(EXCLUDED_PEERS_PATH)
     excluded_peers_list = [entry['pubkey'] for entry in excluded_peers['EXCLUSION_LIST']]
+
     exclude_from = set(regolancer_config.get("exclude_from", []))
     to = set(regolancer_config.get("to", []))
     updated_exclude_from = exclude_from.copy()
     updated_to = to.copy()
 
     for channel in channels_data:
-        chan_id = channel['chan_id']
-        tag = channel['tag']
+        chan_id, pubkey, tag = channel
 
-        if channel['pubkey'] in excluded_peers_list:
+        if pubkey in excluded_peers_list:
             print(f"Channel {chan_id} is in the exclusion list of pubkeys, skipping...")
             continue
 
@@ -73,7 +90,6 @@ def main():
     to_changed = has_list_changed(to, updated_to)
 
     if exclude_from_changed or to_changed:
-
         regolancer_config['exclude_from'] = list(updated_exclude_from)
         regolancer_config['to'] = list(updated_to)
 

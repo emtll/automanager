@@ -15,7 +15,6 @@ def expand_path(path):
     return os.path.expanduser(path)
 
 LNDG_DB_PATH = expand_path(config['Paths']['lndg_db_path'])
-JSON_FILE_PATH = expand_path(config['Paths']['json_channels_path'])
 DB_PATH = expand_path(config['Paths']['db_path'])
 PERIOD = int(config['Get_channels_data']['period'])
 ROUTER_FACTOR = float(config['Get_channels_data']['router_factor'])
@@ -346,12 +345,6 @@ def tag(total_routed_in, total_routed_out, days_open):
     else:
         return 'router'
 
-def load_existing_data():
-    if os.path.exists(JSON_FILE_PATH):
-        with open(JSON_FILE_PATH, 'r') as f:
-            return json.load(f)
-    return {}
-
 def get_active_channels(conn):
     query = """
     SELECT chan_id, remote_pubkey, capacity, local_balance, unsettled_balance, alias, local_fee_rate, local_base_fee, remote_fee_rate, remote_base_fee, funding_txid
@@ -474,7 +467,6 @@ def main():
     new_conn = connect_new_db()
     create_personalized_table(new_conn, PERIOD)
     create_tables(new_conn)
-    existing_data = load_existing_data()
     active_channels = get_active_channels(conn)
 
     periods = {
