@@ -5,3 +5,10 @@
 2024-10-17 15:57:44,163 - ERROR - Error executing /automator-lnd/scripts/get_channels_data.py or /automator-lnd/scripts/autofee.py: Command '['python3', '/automator-lnd/scripts/get_channels_data.py']' returned non-zero exit status 2.
 2024-10-17 15:57:46,366 - INFO - Automator-controller manually interrupted.
 2024-10-17 15:57:46,366 - INFO - Automator-controller finished.
+2024-10-17 16:05:00,896 - INFO - Starting the automator-controller
+2024-10-17 16:05:00,896 - INFO - Executing /home/admin/automator-lnd/scripts/get_channels_data.py
+2024-10-17 16:05:00,896 - INFO - Executing /home/admin/automator-lnd/scripts/auto-rebalancer-config.py
+2024-10-17 16:05:00,915 - ERROR - Error executing /home/admin/automator-lnd/scripts/get_channels_data.py or /home/admin/automator-lnd/scripts/autofee.py: Command '['python3', '/home/admin/automator-lnd/scripts/get_channels_data.py']' returned non-zero exit status 1.
+2024-10-17 16:05:00,918 - ERROR - Error executing /home/admin/automator-lnd/scripts/auto-rebalancer-config.py: Command '['python3', '/home/admin/automator-lnd/scripts/auto-rebalancer-config.py']' returned non-zero exit status 1.
+2024-10-17 16:05:01,985 - INFO - Automator-controller manually interrupted.
+2024-10-17 16:05:01,985 - INFO - Automator-controller finished.

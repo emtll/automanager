@@ -13,7 +13,7 @@ def expand_path(path):
 REGOLANCER_JSON_PATH = expand_path(config['Paths']['regolancer_json_path'])
 CHANNELS_DATA_PATH = expand_path(config['Paths']['json_channels_path'])
 EXCLUDED_PEERS_PATH = expand_path(config['Paths']['excluded_peers_path'])
-SERVICE_NAME = config(['AutoRebalancer']['regolancer-controller_service'])
+SERVICE_NAME = config['AutoRebalancer']['regolancer-controller_service']
 
 def restart_service(service_name):
     try:
