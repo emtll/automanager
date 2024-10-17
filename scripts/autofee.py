@@ -62,10 +62,10 @@ def fee_change_checker(chan_id, table_name):
 def adjust_new_channel_fee(channel):
     outbound_ratio = channel[6]      # outbound_liquidity
     days_since_opening = channel[8]  # days_open
-    local_fee_rate = channel[25]     # local_fee_rate
-    last_outgoing = channel[27]      # last_outgoing_activity
+    local_fee_rate = channel[27]     # local_fee_rate
+    last_outgoing = channel[30]      # last_outgoing_activity
     last_incoming = channel[28]      # last_incoming_activity
-    last_rebalance = channel[29]     # last_rebalance
+    last_rebalance = channel[32]     # last_rebalance
 
     if days_since_opening >= 2 and outbound_ratio == 0 and last_incoming is None and last_rebalance is None:
         return int(local_fee_rate * 1.05)  # Fee Increase 5%
@@ -79,9 +79,9 @@ def adjust_new_channel_fee(channel):
 def adjust_sink_fee(channel):
     outbound_ratio = channel[6]      # outbound_liquidity
     total_cost_ppm = channel[12]     # cost_ppm
-    local_fee_rate = channel[25]     # local_fee_rate
-    last_rebalance = channel[29]     # last_rebalance
-    last_outgoing = channel[27]      # last_outgoing_activity
+    local_fee_rate = channel[27]     # local_fee_rate
+    last_outgoing = channel[30]      # last_outgoing_activity
+    last_rebalance = channel[32]     # last_rebalance
 
     if outbound_ratio <= 10.0 and days_since_last_activity(last_rebalance) >= 2 and local_fee_rate < MAX_FEE_THRESHOLD:
         return int(local_fee_rate * 1.05)  # Fee Increase 5%
@@ -101,9 +101,9 @@ def adjust_sink_fee(channel):
 def adjust_router_fee(channel):
     outbound_ratio = channel[6]      # outbound_liquidity
     total_cost_ppm = channel[12]     # cost_ppm
-    local_fee_rate = channel[25]     # local_fee_rate
-    last_rebalance = channel[29]     # last_rebalance
-    last_outgoing = channel[27]      # last_outgoing_activity
+    local_fee_rate = channel[27]     # local_fee_rate
+    last_outgoing = channel[30]      # last_outgoing_activity
+    last_rebalance = channel[32]     # last_rebalance
 
     if outbound_ratio <= 10.0 and days_since_last_activity(last_rebalance) >= 1 and local_fee_rate < MAX_FEE_THRESHOLD:
         return int(local_fee_rate * 1.03)  # Fee Increase 3%
@@ -143,7 +143,7 @@ def main():
         pubkey = channel[1]
         alias = channel[2]
         tag = channel[4]
-        local_fee_rate = channel[25]
+        local_fee_rate = channel[27]
 
         if is_excluded(pubkey, exclusion_list):
             print_with_timestamp(f"Channel {alias} ({pubkey}) is in the exclusion list, skipping...")
