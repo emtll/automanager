@@ -1,0 +1,12 @@
+{
+    "EXCLUSION_LIST": [
+        {
+          "pubkey": "02b2ae15001601b74eee8ddbd036315c5fbd415b24f88f24d5266820169dfd13de",
+          "alias": "lndwr3.zaphq.io"
+        },
+        {
+          "pubkey": "02535215135eb832df0f9858ff775bd4ae0b8911c59e2828ff7d03b535b333e149",
+          "alias": "lndwr2.zaphq.io"
+        }
+      ]
+  }
