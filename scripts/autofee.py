@@ -62,9 +62,9 @@ def fee_change_checker(chan_id, table_name):
 def adjust_new_channel_fee(channel):
     outbound_ratio = channel[6]      # outbound_liquidity
     days_since_opening = channel[8]  # days_open
-    local_fee_rate = channel[27]     # local_fee_rate
+    local_fee_rate = channel[26]     # local_fee_rate
     last_outgoing = channel[30]      # last_outgoing_activity
-    last_incoming = channel[28]      # last_incoming_activity
+    last_incoming = channel[31]      # last_incoming_activity
     last_rebalance = channel[32]     # last_rebalance
 
     if days_since_opening >= 2 and outbound_ratio == 0 and last_incoming is None and last_rebalance is None:
@@ -79,7 +79,7 @@ def adjust_new_channel_fee(channel):
 def adjust_sink_fee(channel):
     outbound_ratio = channel[6]      # outbound_liquidity
     total_cost_ppm = channel[12]     # cost_ppm
-    local_fee_rate = channel[27]     # local_fee_rate
+    local_fee_rate = channel[26]     # local_fee_rate
     last_outgoing = channel[30]      # last_outgoing_activity
     last_rebalance = channel[32]     # last_rebalance
 
@@ -101,7 +101,7 @@ def adjust_sink_fee(channel):
 def adjust_router_fee(channel):
     outbound_ratio = channel[6]      # outbound_liquidity
     total_cost_ppm = channel[12]     # cost_ppm
-    local_fee_rate = channel[27]     # local_fee_rate
+    local_fee_rate = channel[26]     # local_fee_rate
     last_outgoing = channel[30]      # last_outgoing_activity
     last_rebalance = channel[32]     # last_rebalance
 
@@ -121,7 +121,7 @@ def adjust_router_fee(channel):
         return calculate_new_fee(total_cost_ppm)  # Cost PPM + 20%
 
 def adjust_source_fee(channel):
-    total_routed_out = channel[14]   # total_routed_out
+    total_routed_out = channel[15]   # total_routed_out
     if total_routed_out > 0:
         return 10  # Set Fee Rate to 10ppm 
     else:
@@ -143,7 +143,7 @@ def main():
         pubkey = channel[1]
         alias = channel[2]
         tag = channel[4]
-        local_fee_rate = channel[27]
+        local_fee_rate = channel[26]
 
         if is_excluded(pubkey, exclusion_list):
             print_with_timestamp(f"Channel {alias} ({pubkey}) is in the exclusion list, skipping...")
