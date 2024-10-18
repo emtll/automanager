@@ -60,12 +60,12 @@ def fee_change_checker(chan_id, table_name):
     return result is not None
 
 def adjust_new_channel_fee(channel):
-    outbound_ratio = channel[6]      # outbound_liquidity
-    days_since_opening = channel[8]  # days_open
-    local_fee_rate = channel[26]     # local_fee_rate
-    last_outgoing = channel[30]      # last_outgoing_activity
-    last_incoming = channel[31]      # last_incoming_activity
-    last_rebalance = channel[32]     # last_rebalance
+    outbound_ratio = channel['outbound_liquidity']      # outbound_liquidity
+    days_since_opening = channel['days_open']           # days_open
+    local_fee_rate = channel['local_fee_rate']          # local_fee_rate
+    last_outgoing = channel['last_outgoing_activity']   # last_outgoing_activity
+    last_incoming = channel['last_incoming_activity']   # last_incoming_activity
+    last_rebalance = channel['last_rebalance']          # last_rebalance
 
     if days_since_opening >= 2 and outbound_ratio == 0 and last_incoming is None and last_rebalance is None:
         return int(local_fee_rate * 1.05)  # Fee Increase 5%
@@ -77,11 +77,11 @@ def adjust_new_channel_fee(channel):
     return local_fee_rate  # No Update
 
 def adjust_sink_fee(channel):
-    outbound_ratio = channel[6]      # outbound_liquidity
-    total_cost_ppm = channel[12]     # cost_ppm
-    local_fee_rate = channel[26]     # local_fee_rate
-    last_outgoing = channel[30]      # last_outgoing_activity
-    last_rebalance = channel[32]     # last_rebalance
+    outbound_ratio = channel['outbound_liquidity']      # outbound_liquidity
+    total_cost_ppm = channel['cost_ppm']                # cost_ppm
+    local_fee_rate = channel['local_fee_rate']          # local_fee_rate
+    last_outgoing = channel['last_outgoing_activity']   # last_outgoing_activity
+    last_rebalance = channel['last_rebalance']          # last_rebalance
 
     if outbound_ratio <= 10.0 and days_since_last_activity(last_rebalance) >= 2 and local_fee_rate < MAX_FEE_THRESHOLD:
         return int(local_fee_rate * 1.05)  # Fee Increase 5%
@@ -99,11 +99,11 @@ def adjust_sink_fee(channel):
         return calculate_new_fee(total_cost_ppm)  # Cost PPM + 20%
         
 def adjust_router_fee(channel):
-    outbound_ratio = channel[6]      # outbound_liquidity
-    total_cost_ppm = channel[12]     # cost_ppm
-    local_fee_rate = channel[26]     # local_fee_rate
-    last_outgoing = channel[30]      # last_outgoing_activity
-    last_rebalance = channel[32]     # last_rebalance
+    outbound_ratio = channel['outbound_liquidity']      # outbound_liquidity
+    total_cost_ppm = channel['cost_ppm']                # cost_ppm
+    local_fee_rate = channel['local_fee_rate']          # local_fee_rate
+    last_outgoing = channel['last_outgoing_activity']   # last_outgoing_activity
+    last_rebalance = channel['last_rebalance']          # last_rebalance
 
     if outbound_ratio <= 10.0 and days_since_last_activity(last_rebalance) >= 1 and local_fee_rate < MAX_FEE_THRESHOLD:
         return int(local_fee_rate * 1.03)  # Fee Increase 3%
@@ -121,7 +121,7 @@ def adjust_router_fee(channel):
         return calculate_new_fee(total_cost_ppm)  # Cost PPM + 20%
 
 def adjust_source_fee(channel):
-    total_routed_out = channel[15]   # total_routed_out
+    total_routed_out = channel['total_routed_out']   # total_routed_out
     if total_routed_out > 0:
         return 10  # Set Fee Rate to 10ppm 
     else:
@@ -137,13 +137,20 @@ def main():
     table_name = f'opened_channels_{PERIOD}d'
     cursor.execute(f"SELECT * FROM {table_name}")
     channels_data = cursor.fetchall()
+    column_names = [description[0] for description in cursor.description]
 
     for channel in channels_data:
-        chan_id = channel[0]
-        pubkey = channel[1]
-        alias = channel[2]
-        tag = channel[4]
-        local_fee_rate = channel[26]
+        channel_dict = dict(zip(column_names, channel))
+
+        chan_id = channel_dict.get('chan_id', None)
+        pubkey = channel_dict.get('pubkey', None)
+        alias = channel_dict.get('alias', None)
+        tag = channel_dict.get('tag', None)
+        local_fee_rate = channel_dict.get('local_fee_rate', None)
+
+        if chan_id is None or pubkey is None or alias is None or tag is None:
+            print_with_timestamp(f"Missing required data for channel, skipping...")
+            continue
 
         if is_excluded(pubkey, exclusion_list):
             print_with_timestamp(f"Channel {alias} ({pubkey}) is in the exclusion list, skipping...")
@@ -154,13 +161,13 @@ def main():
             continue
 
         if tag == "new_channel":
-            new_fee = adjust_new_channel_fee(channel)
+            new_fee = adjust_new_channel_fee(channel_dict)
         elif tag == "sink":
-            new_fee = adjust_sink_fee(channel)
+            new_fee = adjust_sink_fee(channel_dict)
         elif tag == "router":
-            new_fee = adjust_router_fee(channel)
+            new_fee = adjust_router_fee(channel_dict)
         elif tag == "source":
-            new_fee = adjust_source_fee(channel)
+            new_fee = adjust_source_fee(channel_dict)
         else:
             print_with_timestamp(f"Unknown tag for {alias}, skipping...")
             continue
