@@ -33,9 +33,9 @@ def create_closed_channels_table(conn):
         alias TEXT,
         opening_date TEXT,
         closure_date TEXT,
+        total_routed_out INTEGER,
         total_routed_in INTEGER,
         total_rebalanced_in INTEGER,
-        total_routed_out INTEGER,
         total_revenue INTEGER,
         revenue_ppm INTEGER,
         total_cost INTEGER,
@@ -45,7 +45,6 @@ def create_closed_channels_table(conn):
         profit_margin REAL,
         assisted_revenue INTEGER,
         assisted_revenue_ppm INTEGER,
-        profit_per_day INTEGER,
         days_open INTEGER,
         sats_per_day_profit INTEGER,
         sats_per_day_assisted INTEGER,
@@ -211,14 +210,14 @@ def update_closed_channels_db(conn_lndg, conn_new, closed_channels):
 
         cursor_new.execute("""
             INSERT OR REPLACE INTO closed_channels
-            (chan_id, pubkey, alias, opening_date, closure_date, total_routed_in, total_rebalanced_in,
-             total_routed_out, total_revenue, revenue_ppm, total_cost, cost_ppm, profit, profit_ppm,
-             profit_margin, assisted_revenue, assisted_revenue_ppm, profit_per_day, days_open,
+            (chan_id, pubkey, alias, opening_date, closure_date, total_routed_out, total_routed_in, total_rebalanced_in,
+             total_revenue, revenue_ppm, total_cost, cost_ppm, profit, profit_ppm,
+             profit_margin, assisted_revenue, assisted_revenue_ppm, days_open,
              sats_per_day_profit, sats_per_day_assisted, apy, iapy, tag)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (chan_id, pubkey, alias, opening_date, closure_date, total_routed_in, total_rebalanced_in,
-              total_routed_out, total_revenue, revenue_ppm, total_cost, cost_ppm, profit, profit_ppm,
-              profit_margin, assisted_revenue, assisted_revenue_ppm, profit_per_day, days_open,
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (chan_id, pubkey, alias, opening_date, closure_date, total_routed_out, total_routed_in, total_rebalanced_in, 
+              total_revenue, revenue_ppm, total_cost, cost_ppm, profit, profit_ppm,
+              profit_margin, assisted_revenue, assisted_revenue_ppm, days_open,
               sats_per_day_profit, sats_per_day_assisted, apy, iapy, channel_tag))
 
     conn_new.commit()
