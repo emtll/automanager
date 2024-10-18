@@ -335,7 +335,26 @@ def calculate_inbound_liquidity(local_balance, capacity):
         return round((remote_balance / capacity) * 100, 1)  
     return 0
 
-def tag(total_routed_in, total_routed_out, days_open):
+def get_lifetime_data(conn, chan_id):
+    query = """
+    SELECT total_routed_in, total_routed_out, days_open
+    FROM opened_channels_lifetime
+    WHERE chan_id = ?;
+    """
+    result = conn.execute(query, (chan_id,)).fetchone()
+    if result:
+        total_routed_in, total_routed_out, days_open = result
+        return total_routed_in, total_routed_out, days_open
+    return None, None, None
+
+def tag(conn, chan_id, total_routed_in, total_routed_out, days_open):
+    lifetime_routed_in, lifetime_routed_out, lifetime_days_open = get_lifetime_data(conn, chan_id)
+
+    if lifetime_routed_in is not None and lifetime_routed_out is not None:
+        total_routed_in = lifetime_routed_in
+        total_routed_out = lifetime_routed_out
+        days_open = lifetime_days_open
+
     if total_routed_in == 0 and total_routed_out == 0 and days_open < 7:
         return 'new_channel'
     elif total_routed_in > (total_routed_out * ROUTER_FACTOR):
@@ -536,11 +555,14 @@ def main():
             outbound_liquidity = calculate_outbound_liquidity(local_balance, capacity)
             inbound_liquidity = calculate_inbound_liquidity(local_balance, capacity)
 
+            tag_value = tag(new_conn, chan_id, total_routed_in, total_routed_out, days_open)
+
             data = (
-                chan_id, pubkey, alias, opening_date, tag(total_routed_in, total_routed_out, days_open), capacity, outbound_liquidity, inbound_liquidity,
+                chan_id, pubkey, alias, opening_date, tag_value, capacity, outbound_liquidity, inbound_liquidity,
                 days_open, total_revenue, revenue_ppm, total_cost, ppm, rebal_rate, total_rebalanced_in, total_routed_out, total_routed_in, 
                 assisted_revenue, assisted_revenue_ppm, profit, profit_ppm, profit_margin, sats_per_day_profit, 
-                sats_per_day_assisted, apy, iapy, local_fee_rate, local_base_fee, remote_fee_rate, remote_base_fee, last_outgoing_activity, last_incoming_activity, last_rebalance
+                sats_per_day_assisted, apy, iapy, local_fee_rate, local_base_fee, remote_fee_rate, remote_base_fee, 
+                last_outgoing_activity, last_incoming_activity, last_rebalance
             )
 
             upsert_channel_data(new_conn, data, table_name)

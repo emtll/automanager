@@ -30,11 +30,16 @@ def load_json(file_path):
         return json.load(file)
 
 def save_json(file_path, data):
+    if 'exclude_from' in data:
+        data['exclude_from'] = [str(item) for item in data['exclude_from']]
+    if 'to' in data:
+        data['to'] = [str(item) for item in data['to']]
     with open(file_path, 'w') as file:
         json.dump(data, file, indent=4)
 
+
 def has_list_changed(old_list, new_list):
-    return set(old_list) != set(new_list)
+    return set(map(str, old_list)) != set(map(str, new_list))
 
 def connect_db():
     conn = sqlite3.connect(DB_PATH)
@@ -55,21 +60,22 @@ def main():
     channels_data = get_channels_data(conn)
     conn.close()
     excluded_peers = load_json(EXCLUDED_PEERS_PATH)
-    excluded_peers_list = [entry['pubkey'] for entry in excluded_peers['EXCLUSION_LIST']]
+    excluded_peers_list = [str(entry['pubkey']) for entry in excluded_peers['EXCLUSION_LIST']]
 
-    exclude_from = set(regolancer_config.get("exclude_from", []))
-    to = set(regolancer_config.get("to", []))
+    exclude_from = set(map(str, regolancer_config.get("exclude_from", [])))
+    to = set(map(str, regolancer_config.get("to", [])))
     updated_exclude_from = exclude_from.copy()
     updated_to = to.copy()
 
     for channel in channels_data:
         chan_id, pubkey, tag = channel
+        chan_id = str(chan_id)
 
         if pubkey in excluded_peers_list:
             print(f"Channel {chan_id} is in the exclusion list of pubkeys, skipping...")
             continue
 
-        if tag in ['new_channel', 'sink']:
+        if tag in ['new_channel', 'sink', 'router']:
             if chan_id not in updated_exclude_from:
                 updated_exclude_from.add(chan_id)
                 print(f"Channel {chan_id} with tag '{tag}' added to 'exclude_from'.")
@@ -89,8 +95,8 @@ def main():
     to_changed = has_list_changed(to, updated_to)
 
     if exclude_from_changed or to_changed:
-        regolancer_config['exclude_from'] = list(updated_exclude_from)
-        regolancer_config['to'] = list(updated_to)
+        regolancer_config['exclude_from'] = list(map(str, updated_exclude_from))
+        regolancer_config['to'] = list(map(str, updated_to))
 
         save_json(REGOLANCER_JSON_PATH, regolancer_config)
         print("Configuration updated successfully.")
