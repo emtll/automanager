@@ -1,3 +1,5 @@
+![automator-lnd](https://github.com/user-attachments/assets/ea55c73a-4114-49aa-9359-83a8b2617e42)
+
 # Automator LND
 Automation for Lightning nodes of LND implementation
 
