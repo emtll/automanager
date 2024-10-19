@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import time
 import logging
 import configparser
@@ -32,6 +34,7 @@ SLEEP_GET_CHANNELS = int(config.get('Automation', 'sleep_get_channels'))
 SLEEP_AUTOFEE = int(config.get('Automation', 'sleep_autofee'))
 SLEEP_GET_CLOSED_CHANNELS = int(config.get('Automation', 'sleep_get_closed_channels'))
 SLEEP_REBALANCER = int(config.get('Automation', 'sleep_rebalancer'))
+SLEEP_CLOSECHANNEL = int(config.get('Automation', 'sleep_closechannel'))
 
 GET_CHANNELS_SCRIPT = get_absolute_path(config.get('Paths', 'get_channels_script'))
 AUTO_FEE_SCRIPT = get_absolute_path(config.get('Paths', 'autofee_script'))
@@ -122,7 +125,7 @@ def main():
         if ENABLE_CLOSE_CHANNEL:
             logging.info("Executing close_channel")
             close_channel_main = import_main_function(CLOSE_CHANNEL_SCRIPT)
-            thread5 = threading.Thread(target=run_script_independently, args=(close_channel_main, SLEEP_REBALANCER))
+            thread5 = threading.Thread(target=run_script_independently, args=(close_channel_main, SLEEP_CLOSECHANNEL))
             threads.append(thread5)
             thread5.start()
 

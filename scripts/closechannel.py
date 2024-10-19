@@ -5,7 +5,7 @@ import os
 import requests
 import configparser
 import json 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 config_file_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'automator.conf'))
 config = configparser.ConfigParser()
@@ -102,16 +102,23 @@ def get_high_priority_fee():
 def days_since_activity(activity_date):
     if activity_date is None:
         return float('inf')
-    last_activity = datetime.strptime(activity_date, '%Y-%m-%d %H:%M:%S')
+    if isinstance(activity_date, int):
+        last_activity = datetime.fromtimestamp(activity_date)
+    else:
+        last_activity = datetime.strptime(activity_date, '%Y-%m-%d %H:%M:%S')
     return (datetime.now() - last_activity).days
 
 def load_excluded_peers():
+    if not os.path.exists(excluded_peers_path):
+        print(f"Excluded peers file not found: {excluded_peers_path}")
+        return []
+
     with open(excluded_peers_path, 'r') as f:
-        excluded_data = json.load(f)
-    return [peer for peer in excluded_data['EXCLUSION_LIST']]
+        excluded_data = json.load(f)    
+    return [peer['pubkey'] for peer in excluded_data.get('EXCLUSION_LIST', [])]
 
 def get_channel_info(chan_id):
-    command = ["lncli", "getchaninfo", chan_id]
+    command = ["lncli", "getchaninfo", str(chan_id)]
     result = subprocess.run(command, capture_output=True, text=True)
     if result.returncode == 0:
         return json.loads(result.stdout)
@@ -135,57 +142,86 @@ def close_channel(funding_txid, output_index, sat_per_vbyte):
         return False
 
 def calculate_movement_percentage(channel):
-    capacity = channel[5]  # 'capacity' column
-    total_routed_in = channel[14]  # total_routed_in
-    total_routed_out = channel[13]  # total_routed_out
+    capacity = channel['capacity']
+    total_routed_in = channel['total_routed_in']
+    total_routed_out = channel['total_routed_out']
     total_movement = total_routed_in + total_routed_out
     movement_percentage = (total_movement / capacity) * 100 if capacity > 0 else 0
     
     return movement_percentage
 
 def should_close_channel(channel, excluded_peers):
-    tag = channel[4]  # 'tag'column
-    chan_id = channel[0]  # 'chan_id' column
+    tag = channel['tag']
+    chan_id = channel['chan_id']
+    pubkey = channel['pubkey']
     movement_percentage = calculate_movement_percentage(channel)
 
-    if channel[1] in excluded_peers:  # 'pubkey' column
-        print(f"Channel {chan_id} is in the excluded peers list, skipping.")
+    if pubkey in excluded_peers:
+        print_with_timestamp(f"Channel {chan_id} is in the excluded peers list, skipping.")
         return False
 
     if tag == 'new_channel':
-        print(f"Channel {chan_id} is a new channel, skipping.")
+        print_with_timestamp(f"Channel {chan_id} is a new channel, skipping.")
         return False
-    
+
     if tag == 'source':
-        last_incoming_activity = channel[28]  # last_incoming_activity
-        if days_since_activity(last_incoming_activity) > days_inactive_source and movement_percentage < movement_threshold_perc:
-            return True
+        last_incoming_activity = channel['last_incoming_activity']
+        if days_since_activity(last_incoming_activity) > days_inactive_source:
+            if movement_percentage < movement_threshold_perc:
+                print_with_timestamp(f"Channel {chan_id} is a source channel and meets criteria for closure.")
+                return True
+            else:
+                print_with_timestamp(f"Channel {chan_id} movement percentage ({movement_percentage}%) is above threshold ({movement_threshold_perc}%), skipping.")
+        else:
+            print_with_timestamp(f"Channel {chan_id} has incoming activity within {days_inactive_source} days (Last activity: {last_incoming_activity}).")
 
     if tag == 'sink':
-        last_outgoing_activity = channel[27]  # last_outgoing_activity
-        if days_since_activity(last_outgoing_activity) > days_inactive_sink and movement_percentage < movement_threshold_perc:
-            return True
+        last_outgoing_activity = channel['last_outgoing_activity']
+        if days_since_activity(last_outgoing_activity) > days_inactive_sink:
+            if movement_percentage < movement_threshold_perc:
+                print_with_timestamp(f"Channel {chan_id} is a sink channel and meets criteria for closure.")
+                return True
+            else:
+                print_with_timestamp(f"Channel {chan_id} movement percentage ({movement_percentage}%) is above threshold ({movement_threshold_perc}%), skipping.")
+        else:
+            print_with_timestamp(f"Channel {chan_id} has outgoing activity within {days_inactive_sink} days (Last activity: {last_outgoing_activity}).")
 
     if tag == 'router':
-        last_incoming_activity = channel[28]  # last_incoming_activity
-        last_outgoing_activity = channel[27]  # last_outgoing_activity
-        if days_since_activity(last_incoming_activity) > days_inactive_router and days_since_activity(last_outgoing_activity) > days_inactive_router and movement_percentage < movement_threshold_perc:
-            return True
+        last_incoming_activity = channel['last_incoming_activity']
+        last_outgoing_activity = channel['last_outgoing_activity']
+        if days_since_activity(last_incoming_activity) > days_inactive_router and days_since_activity(last_outgoing_activity) > days_inactive_router:
+            if movement_percentage < movement_threshold_perc:
+                print_with_timestamp(f"Channel {chan_id} is a router channel and meets criteria for closure.")
+                return True
+            else:
+                print_with_timestamp(f"Channel {chan_id} movement percentage ({movement_percentage}%) is above threshold ({movement_threshold_perc}%), skipping.")
+        else:
+            print_with_timestamp(f"Channel {chan_id} has recent activity within {days_inactive_router} days (Last incoming: {last_incoming_activity}, Last outgoing: {last_outgoing_activity}).")
 
+    print_with_timestamp(f"Channel {chan_id} does not meet any criteria for closure.")
     return False
 
 def monitor_and_close_channels():
     excluded_peers = load_excluded_peers()
 
     conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
     table_name = 'opened_channels_lifetime'
     cursor.execute(f"SELECT * FROM {table_name}")
     channels_data = cursor.fetchall()
 
+    channels_closed = False
+
     for channel in channels_data:
-        chan_id = channel[0]  # chan_id
+        chan_id = channel['chan_id']
+        pubkey = channel['pubkey']
+
+        if pubkey in excluded_peers:
+            print_with_timestamp(f"Channel {chan_id} is in the excluded peers list, skipping.")
+            continue
+
         if should_close_channel(channel, excluded_peers):
             print_with_timestamp(f"Closing channel {chan_id}...")
             config_path = create_or_update_config(chan_id)
@@ -201,7 +237,8 @@ def monitor_and_close_channels():
                             if high_priority_fee <= max_fee_rate:
                                 print(f"Closing channel {chan_id} with high priority fee {high_priority_fee}.")
                                 close_channel(funding_txid, output_index, high_priority_fee)
-                                return
+                                channels_closed = True
+                                break
                             else:
                                 print(f"High priority fee {high_priority_fee} is too high. Waiting 1 hour to check again.")
                                 time.sleep(3600)
@@ -210,7 +247,9 @@ def monitor_and_close_channels():
                             time.sleep(3600)
             else:
                 print(f"Error retrieving channel info for {chan_id}.")
-            return
+
+    if not channels_closed:
+        print_with_timestamp("No channels were closed. All channels are either excluded or do not meet the criteria.")
 
     conn.close()
 
