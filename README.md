@@ -15,10 +15,121 @@ Automation for Lightning nodes of LND implementation
   - Magma auto-saler (soon)
 
 ## Abstract
+The Automator LND project is designed to automate the management and optimization of a Lightning Network (LND) node. It integrates data from the LNDg database and various APIs to monitor channel performance, adjust fees, rebalance liquidity, and close channels based on configurable criteria. This project automates key tasks such as tracking channel activity, calculating profitability, and ensuring optimal routing efficiency.
+
+The system relies on a dynamic configuration file (automator.conf) to manage paths, intervals, and thresholds. Key features include monitoring open and closed channels, calculating financial metrics (e.g., revenue, costs, profit, APY), and automating actions such as rebalancing and channel closures. It also ensures that inactive channels are closed based on activity patterns and liquidity movement, and integrates with external tools like charge-lnd and Mempool.Space to manage fees and transactions efficiently.
+
+By automating these processes, Automator LND reduces manual intervention, enhances node performance, and helps node operators maintain efficient routing while maximizing revenue and minimizing costs. This system is essential for optimizing the liquidity and routing potential of a Lightning Network node.
+
 ## Motivation
+Managing a Lightning Network node used to be a time-consuming, repetitive, and often frustrating task. I found myself spending countless hours meticulously adjusting fees, monitoring channel activity, rebalancing liquidity, and closing underperforming channels—all manually. Each operation demanded constant attention and intervention, diverting precious time away from more innovative and meaningful developments. It felt like a never-ending cycle of operational maintenance that stifled my productivity.
+
+I realized I was stuck in the grind of maintaining the very infrastructure that was supposed to fuel my projects. This inefficiency was no longer sustainable. The need for automation became glaringly obvious, a solution that could free me from the burden of manual node management.
+
+That’s when Automator LND was born. This project was designed to reclaim those lost hours, offering a fully automated solution for managing channels, adjusting fees, and optimizing liquidity. By delegating these repetitive tasks to an intelligent, automated system, I can now focus on more strategic developments, knowing that my node is running optimally in the background.
+
+In short, Automator LND is more than just a tool—it's a game-changer. It has given me back control of my time and allowed me to direct my energy toward innovation, rather than endlessly managing channels.
+
 ## Requirements
+To run the Automator LND project, the following dependencies and tools are required:
+
+Dependencies
+Ensure the following Python libraries are installed:
+
+sqlite3: For database operations.
+requests: To interact with external APIs, such as Mempool.Space.
+configparser: To read and manage the automator.conf configuration file.
+subprocess: For executing system-level commands, such as restarting services or running binaries.
+You can install the required Python packages with:
+
+bash
+Copy code
+pip install requests
+Required Tools and Services
+In addition to Python dependencies, the following tools and services are essential for the full functionality of Automator LND:
+
+LNDg:
+
+The script relies on the LNDg database (lndg.db) to gather detailed data on channel activity, payments, and forwardings. Ensure LNDg is installed and running, and the database path is correctly configured in automator.conf.
+Charge-lnd:
+
+Charge-lnd is used to manage Lightning Network channel fees and disable channels before closure. The script integrates with this tool for automatic channel management. Ensure charge-lnd is installed and the binary path is set in automator.conf.
+Balance of Satoshis (BOS):
+
+Balance of Satoshis is used for fee management and to issue commands related to node operations. Ensure BOS is installed, and the path to the binary is configured properly in automator.conf.
+Regolancer:
+
+Regolancer handles the automatic rebalancing of Lightning channels. It ensures liquidity is balanced across channels to optimize routing and node performance. You need regolancer installed and configured.
+Regolancer-Controller:
+
+Regolancer-Controller is a systemd service that runs and manages regolancer. The Automator LND script interacts with this service to manage rebalancing activities. Ensure the service is installed and operational.
+
 ## Installation
+
+
 ## General Configuration
+The automator.conf file is a central configuration file that governs the behavior of the Automator LND project. It allows for flexible control over the various automation scripts, paths, APIs, and operational parameters. Below is a detailed breakdown of the configuration sections:
+
+[Control]
+This section enables or disables key features of the automation system:
+
+enable_autofee: Enables the automatic fee adjustment process for channels. (Default: true)
+enable_get_closed_channels: Enables the process to fetch and update data for closed channels. (Default: true)
+enable_rebalancer: Enables the automatic rebalancing of channels. (Default: true)
+enable_close_channel: Enables the automatic closure of inactive or unprofitable channels. (Default: false)
+[Automation]
+This section defines the sleep intervals (in seconds) for various scripts, controlling how frequently they are executed:
+
+sleep_autofee: Interval for the autofee.py script to run. (Default: 14400 seconds, i.e., 4 hours)
+sleep_get_channels: Interval for fetching active channel data. (Default: 900 seconds, i.e., 15 minutes)
+sleep_get_closed_channels: Interval for fetching closed channel data. (Default: 604800 seconds, i.e., 1 week)
+sleep_rebalancer: Interval for the auto-rebalancer-config.py script. (Default: 86400 seconds, i.e., 24 hours)
+sleep_closechannel: Interval for checking and closing inactive channels. (Default: 86400 seconds, i.e., 24 hours)
+[Paths]
+This section specifies the paths to critical files and directories:
+
+lndg_db_path: Path to the LNDg database, which contains historical channel data. (Default: lndg/data/db.sqlite3)
+bos_path: Path to the Balance of Satoshis (BOS) binary used for node operations. (Default: .npm-global/bin/bos)
+charge_lnd_config_dir: Directory where charge-lnd configurations are stored. (Default: charge-lnd/)
+regolancer_json_path: Path to the regolancer configuration file, which handles rebalancing. (Default: regolancer-controller/default.json)
+db_path: Path to the new database where processed data is stored. (Default: automator-lnd-voltz/data/database.db)
+excluded_peers_path: Path to the JSON file that contains the list of peers to exclude from specific operations. (Default: automator-lnd-voltz/excluded_peers.json)
+get_channels_script: Path to the script for fetching active channel data. (Default: scripts/get_channels_data.py)
+autofee_script: Path to the script responsible for adjusting fees. (Default: scripts/autofee.py)
+get_closed_channels_script: Path to the script for fetching closed channel data. (Default: scripts/get_closed_channels_data.py)
+rebalancer_script: Path to the script that handles automatic rebalancing. (Default: scripts/auto-rebalancer-config.py)
+close_channel_script: Path to the script for closing inactive channels. (Default: scripts/closechannel.py)
+[Autofee]
+This section configures the behavior of the fee adjustment process:
+
+max_fee_threshold: Maximum allowable fee rate (in PPM) for a channel before the fee is adjusted. (Default: 2500)
+table_period: Time period (in days) over which to analyze data for fee adjustments. (Default: 30)
+[AutoRebalancer]
+This section handles the configuration for automatic rebalancing using regolancer:
+
+regolancer-controller_service: Specifies the systemd service responsible for running the regolancer controller. (Default: regolancer-controller.service)
+[API]
+This section contains API endpoints for external services:
+
+mempool_api_url_base: Base URL for fetching transaction details from Mempool.Space. (Default: https://mempool.space/api/tx/)
+mempool_api_url_recomended_fees: URL for fetching recommended fee rates from Mempool.Space. (Default: https://mempool.space/api/v1/fees/recommended)
+[Get_channels_data]
+This section defines parameters for fetching channel data:
+
+period: Time period (in days) to analyze channel activity for metrics such as routing and liquidity. (Default: 30)
+router_factor: Factor used to classify channels as sources or sinks based on liquidity movement. (Default: 2)
+[Closechannel]
+This section configures the behavior of the channel closure process:
+
+days_inactive_source: Number of inactive days before a source channel is considered for closure. (Default: 30 days)
+days_inactive_sink: Number of inactive days before a sink channel is considered for closure. (Default: 30 days)
+days_inactive_router: Number of inactive days before a router channel is considered for closure. (Default: 30 days)
+movement_threshold_perc: Minimum percentage of liquidity movement required to avoid closure. (Default: 10%)
+max_fee_rate: Maximum fee rate (in satoshis per vbyte) allowed for channel closure transactions. (Default: 1)
+charge_lnd_bin: Path to the charge-lnd binary used for managing channel charges and disabling channels before closure. (Default: charge-lnd)
+charge_lnd_interval: Time interval (in seconds) for running the charge-lnd service. (Default: 300 seconds)
+htlc_check_interval: Time interval (in seconds) for checking pending HTLCs before closing a channel. (Default: 60 seconds)
+
 ## Scripts Explanation
 In this section, we explain transparently how each script works. Feel free to change the logic to suit your use case.
 
