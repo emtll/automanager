@@ -4,7 +4,7 @@ import configparser
 import sqlite3
 from datetime import datetime, timedelta
 
-config_file_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'general.conf'))
+config_file_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'automator.conf'))
 config = configparser.ConfigParser()
 config.read(config_file_path)
 
@@ -16,7 +16,7 @@ def expand_path(path):
 BOS_PATH = expand_path(config['Paths']['bos_path'])
 DB_PATH = expand_path(config['Paths']['db_path'])
 EXCLUSION_FILE_PATH = expand_path(config['Paths']['excluded_peers_path'])
-SLEEP_GET_CHANNELS_AND_AUTOFEE = int(config['Automation']['sleep_get_channels_and_autofee'])
+SLEEP_AUTOFEE = int(config['Automation']['sleep_autofee'])
 MAX_FEE_THRESHOLD = int(config['Autofee']['max_fee_threshold'])
 PERIOD = config['Autofee']['table_period']
 
@@ -46,7 +46,7 @@ def is_excluded(pubkey, exclusion_list):
 def fee_change_checker(chan_id, table_name):
     conn = sqlite3.connect(DB_PATH, timeout=30)
     cursor = conn.cursor()
-    time_limit = datetime.now() - timedelta(seconds=SLEEP_GET_CHANNELS_AND_AUTOFEE)
+    time_limit = datetime.now() - timedelta(seconds=SLEEP_AUTOFEE)
     
     cursor.execute(f"""
         SELECT last_outgoing_activity FROM {table_name}

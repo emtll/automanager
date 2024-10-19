@@ -5,7 +5,7 @@ import requests
 import configparser
 from datetime import datetime, timedelta, timezone
 
-config_file_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'general.conf'))
+config_file_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'automator.conf'))
 config = configparser.ConfigParser()
 config.read(config_file_path)
 
