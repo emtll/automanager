@@ -54,18 +54,37 @@ def get_channels_data(conn):
     cursor.execute(query)
     return cursor.fetchall()
 
+def get_active_channels(conn):
+    cursor = conn.cursor()
+    query = """
+    SELECT chan_id, pubkey, tag
+    FROM opened_channels_lifetime
+    """
+    cursor.execute(query)
+    return cursor.fetchall()
+
 def main():
     regolancer_config = load_json(REGOLANCER_JSON_PATH)
     conn = connect_db()
-    channels_data = get_channels_data(conn)
+    channels_data = get_active_channels(conn)
     conn.close()
     excluded_peers = load_json(EXCLUDED_PEERS_PATH)
     excluded_peers_list = [str(entry['pubkey']) for entry in excluded_peers['EXCLUSION_LIST']]
-
     exclude_from = set(map(str, regolancer_config.get("exclude_from", [])))
     to = set(map(str, regolancer_config.get("to", [])))
     updated_exclude_from = exclude_from.copy()
     updated_to = to.copy()
+    active_chan_ids = set(str(channel[0]) for channel in channels_data)
+    closed_channels_in_exclude_from = exclude_from - active_chan_ids
+    closed_channels_in_to = to - active_chan_ids
+
+    for chan_id in closed_channels_in_exclude_from:
+        updated_exclude_from.remove(chan_id)
+        print(f"Channel {chan_id} has been closed and removed from 'exclude_from'")
+
+    for chan_id in closed_channels_in_to:
+        updated_to.remove(chan_id)
+        print(f"Channel {chan_id} has been closed and removed from 'to'")
 
     for channel in channels_data:
         chan_id, pubkey, tag = channel
@@ -78,18 +97,18 @@ def main():
         if tag in ['new_channel', 'sink', 'router']:
             if chan_id not in updated_exclude_from:
                 updated_exclude_from.add(chan_id)
-                print(f"Channel {chan_id} with tag '{tag}' added to 'exclude_from'.")
+                print(f"Channel {chan_id} with tag '{tag}' added to 'exclude_from'")
             if chan_id not in updated_to:
                 updated_to.add(chan_id)
-                print(f"Channel {chan_id} with tag '{tag}' added to 'to'.")
+                print(f"Channel {chan_id} with tag '{tag}' added to 'to'")
 
         if tag == 'source':
             if chan_id in updated_exclude_from:
                 updated_exclude_from.remove(chan_id)
-                print(f"Channel {chan_id} with tag 'source' was removed from 'exclude_from'.")
+                print(f"Channel {chan_id} with tag 'source' was removed from 'exclude_from'")
             if chan_id in updated_to:
                 updated_to.remove(chan_id)
-                print(f"Channel {chan_id} with tag 'source' was removed from 'to'.")
+                print(f"Channel {chan_id} with tag 'source' was removed from 'to'")
 
     exclude_from_changed = has_list_changed(exclude_from, updated_exclude_from)
     to_changed = has_list_changed(to, updated_to)

@@ -372,6 +372,21 @@ def get_active_channels(conn):
     """
     return conn.execute(query).fetchall()
 
+def remove_closed_channels(conn, active_chan_ids, table):
+    cursor = conn.cursor()
+
+    placeholders = ', '.join('?' for _ in active_chan_ids)
+
+    if active_chan_ids:
+        cursor.execute(f"""
+        DELETE FROM {table}
+        WHERE chan_id NOT IN ({placeholders})
+        """, active_chan_ids)
+    else:
+        cursor.execute(f"DELETE FROM {table}")
+    
+    conn.commit()
+
 def get_opening_date(funding_txid):
     if funding_txid:
         MEMPOOL_API_URL = f"https://mempool.space/api/tx/{funding_txid}"
@@ -474,19 +489,21 @@ def get_assisted_revenue(conn, start_date):
     """
     return conn.execute(query, (start_date,)).fetchall()
 
-
 def main():
     current_date = datetime.now()
     start_date_period = (current_date - timedelta(days=PERIOD)).strftime('%Y-%m-%d %H:%M:%S')
     start_date_1d = (current_date - timedelta(days=1)).strftime('%Y-%m-%d %H:%M:%S')
     start_date_7d = (current_date - timedelta(days=7)).strftime('%Y-%m-%d %H:%M:%S')
     start_date_30d = (current_date - timedelta(days=30)).strftime('%Y-%m-%d %H:%M:%S')
-    start_date_lifetime = "1970-01-01 00:00:00"  
+    start_date_lifetime = "1970-01-01 00:00:00"
+    
     conn = connect_db()
     new_conn = connect_new_db()
     create_personalized_table(new_conn, PERIOD)
     create_tables(new_conn)
+    
     active_channels = get_active_channels(conn)
+    active_chan_ids = [channel[0] for channel in active_channels]
 
     periods = {
         f'opened_channels_{PERIOD}d': start_date_period,
@@ -495,6 +512,9 @@ def main():
         'opened_channels_30d': start_date_30d,
         'opened_channels_lifetime': start_date_lifetime
     }
+    
+    for table_name in periods.keys():
+        remove_closed_channels(new_conn, active_chan_ids, table_name)
     
     for table_name, start_date in periods.items():
         rebalances = get_rebalances(conn, start_date)
@@ -551,7 +571,6 @@ def main():
 
             capacity = channel[2]
             local_balance = channel[3]
-
             outbound_liquidity = calculate_outbound_liquidity(local_balance, capacity)
             inbound_liquidity = calculate_inbound_liquidity(local_balance, capacity)
 
@@ -572,3 +591,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
