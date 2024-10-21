@@ -206,6 +206,12 @@ def main():
                 adjust_inbound_fee(channel_dict, new_fee, total_cost_ppm, pubkey)
         else:
             print_with_timestamp(f"Fee for channel {alias} ({pubkey}) remains unchanged")
+        
+        if new_fee == local_fee_rate:
+            if tag in ["sink", "router"]:
+                adjust_inbound_fee(channel_dict, new_fee, total_cost_ppm, pubkey)
+        else:
+            print_with_timestamp(f"Fee for channel {alias} ({pubkey}) remains unchanged")
 
     conn.close()
 
