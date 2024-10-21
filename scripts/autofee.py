@@ -59,6 +59,23 @@ def fee_change_checker(chan_id, table_name):
     
     return result is not None
 
+def adjust_inbound_fee(channel, new_fee, total_cost_ppm, peer_pubkey):
+    projected_margin = new_fee - total_cost_ppm
+
+    if projected_margin > 0:
+        if channel['tag'] == 'sink':
+            inbound_fee = int(projected_margin * 0.50)
+        elif channel['tag'] == 'router':
+            inbound_fee = int(projected_margin * 0.25)
+
+        print_with_timestamp(f"Setting inbound fee for channel {channel['alias']} ({peer_pubkey}) to {inbound_fee}")
+
+        command = f"{BOS_PATH} fees --set-inbound-rate-discount {inbound_fee} --to {peer_pubkey}"
+        print_with_timestamp(f"Executing: {command}")
+        os.system(command)
+    else:
+        print_with_timestamp(f"No projected profit margin for channel {channel['alias']} ({peer_pubkey}), inbound fee not adjusted")
+
 def adjust_new_channel_fee(channel):
     outbound_ratio = channel['outbound_liquidity']      # outbound_liquidity
     days_since_opening = channel['days_open']           # days_open
@@ -155,6 +172,7 @@ def main():
         alias = channel_dict.get('alias', None)
         tag = channel_dict.get('tag', None)
         local_fee_rate = channel_dict.get('local_fee_rate', None)
+        total_cost_ppm = channel_dict.get('cost_ppm', 0)
 
         if chan_id is None or pubkey is None or alias is None or tag is None:
             print_with_timestamp(f"Missing required data for channel, skipping...")
@@ -183,6 +201,9 @@ def main():
         if new_fee != local_fee_rate:
             print_with_timestamp(f"Adjusting fee for channel {alias} ({pubkey}) to {new_fee}")
             issue_bos_command(pubkey, new_fee)
+
+            if tag in ["sink", "router"]:
+                adjust_inbound_fee(channel_dict, new_fee, total_cost_ppm, pubkey)
         else:
             print_with_timestamp(f"Fee for channel {alias} ({pubkey}) remains unchanged")
 

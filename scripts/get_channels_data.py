@@ -63,6 +63,8 @@ def create_personalized_table(conn, PERIOD):
         local_base_fee INTEGER,
         remote_fee_rate INTEGER,
         remote_base_fee INTEGER,
+        local_inbound_fee_rate INTEGER,
+        local_inbound_base_fee INTEGER,
         last_outgoing_activity TEXT,
         last_incoming_activity TEXT,
         last_rebalance TEXT
@@ -106,6 +108,8 @@ def create_tables(conn):
         local_base_fee INTEGER,
         remote_fee_rate INTEGER,
         remote_base_fee INTEGER,
+        local_inbound_fee_rate INTEGER,
+        local_inbound_base_fee INTEGER,
         last_outgoing_activity TEXT,
         last_incoming_activity TEXT,
         last_rebalance TEXT
@@ -145,6 +149,8 @@ def create_tables(conn):
         local_base_fee INTEGER,
         remote_fee_rate INTEGER,
         remote_base_fee INTEGER,
+        local_inbound_fee_rate INTEGER,
+        local_inbound_base_fee INTEGER,
         last_outgoing_activity TEXT,
         last_incoming_activity TEXT,
         last_rebalance TEXT
@@ -184,6 +190,8 @@ def create_tables(conn):
         local_base_fee INTEGER,
         remote_fee_rate INTEGER,
         remote_base_fee INTEGER,
+        local_inbound_fee_rate INTEGER,
+        local_inbound_base_fee INTEGER,
         last_outgoing_activity TEXT,
         last_incoming_activity TEXT,
         last_rebalance TEXT
@@ -223,6 +231,8 @@ def create_tables(conn):
         local_base_fee INTEGER,
         remote_fee_rate INTEGER,
         remote_base_fee INTEGER,
+        local_inbound_fee_rate INTEGER,
+        local_inbound_base_fee INTEGER,
         last_outgoing_activity TEXT,
         last_incoming_activity TEXT,
         last_rebalance TEXT
@@ -230,7 +240,6 @@ def create_tables(conn):
     """)
     
     conn.commit()
-
 
 def upsert_channel_data(conn, data, table):
     cursor = conn.cursor()
@@ -240,9 +249,11 @@ def upsert_channel_data(conn, data, table):
         chan_id, pubkey, alias, opening_date, tag, capacity, outbound_liquidity, inbound_liquidity, days_open, 
         total_revenue, revenue_ppm, total_cost, cost_ppm, rebal_rate, total_rebalanced_in, total_routed_out, total_routed_in, 
         assisted_revenue, assisted_revenue_ppm, profit, profit_ppm, profit_margin, sats_per_day_profit, sats_per_day_assisted, 
-        apy, iapy, local_fee_rate, local_base_fee, remote_fee_rate, remote_base_fee, last_outgoing_activity, last_incoming_activity, last_rebalance
+        apy, iapy, local_fee_rate, local_base_fee, remote_fee_rate, remote_base_fee, 
+        local_inbound_fee_rate, local_inbound_base_fee,  -- Novas colunas
+        last_outgoing_activity, last_incoming_activity, last_rebalance
     ) 
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(chan_id) DO UPDATE SET
         pubkey=excluded.pubkey,
         alias=excluded.alias,
@@ -273,6 +284,8 @@ def upsert_channel_data(conn, data, table):
         local_base_fee=excluded.local_base_fee,
         remote_fee_rate=excluded.remote_fee_rate,
         remote_base_fee=excluded.remote_base_fee,
+        local_inbound_fee_rate=excluded.local_inbound_fee_rate,  -- Atualização
+        local_inbound_base_fee=excluded.local_inbound_base_fee,  -- Atualização
         last_outgoing_activity=excluded.last_outgoing_activity,
         last_incoming_activity=excluded.last_incoming_activity,
         last_rebalance=excluded.last_rebalance
@@ -366,7 +379,8 @@ def tag(conn, chan_id, total_routed_in, total_routed_out, days_open):
 
 def get_active_channels(conn):
     query = """
-    SELECT chan_id, remote_pubkey, capacity, local_balance, unsettled_balance, alias, local_fee_rate, local_base_fee, remote_fee_rate, remote_base_fee, funding_txid
+    SELECT chan_id, remote_pubkey, capacity, local_balance, unsettled_balance, alias, local_fee_rate, local_base_fee, 
+           remote_fee_rate, remote_base_fee, local_inbound_fee_rate, local_inbound_base_fee, funding_txid
     FROM gui_channels 
     WHERE is_open = 1;
     """
@@ -378,7 +392,7 @@ def remove_closed_channels(conn, active_chan_ids, table):
     placeholders = ', '.join('?' for _ in active_chan_ids)
 
     if active_chan_ids:
-        cursor.execute(f"""
+        cursor.execute(f""" 
         DELETE FROM {table}
         WHERE chan_id NOT IN ({placeholders})
         """, active_chan_ids)
@@ -537,7 +551,9 @@ def main():
             local_base_fee = channel[7]
             remote_fee_rate = channel[8]
             remote_base_fee = channel[9]
-            funding_txid = channel[10]
+            local_inbound_fee_rate = channel[10]
+            local_inbound_base_fee = channel[11]
+            funding_txid = channel[12]
 
             total_cost = int(rebalances_dict.get(chan_id, 0))
             total_rebalanced_in = int(rebalanced_in_dict.get(chan_id, 0))
@@ -581,6 +597,7 @@ def main():
                 days_open, total_revenue, revenue_ppm, total_cost, ppm, rebal_rate, total_rebalanced_in, total_routed_out, total_routed_in, 
                 assisted_revenue, assisted_revenue_ppm, profit, profit_ppm, profit_margin, sats_per_day_profit, 
                 sats_per_day_assisted, apy, iapy, local_fee_rate, local_base_fee, remote_fee_rate, remote_base_fee, 
+                local_inbound_fee_rate, local_inbound_base_fee,
                 last_outgoing_activity, last_incoming_activity, last_rebalance
             )
 
