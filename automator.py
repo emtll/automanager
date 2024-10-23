@@ -41,11 +41,13 @@ AUTO_FEE_SCRIPT = get_absolute_path(config.get('Paths', 'autofee_script'))
 GET_CLOSED_CHANNELS_SCRIPT = get_absolute_path(config.get('Paths', 'get_closed_channels_script'))
 REBALANCER_SCRIPT = get_absolute_path(config.get('Paths', 'rebalancer_script'))
 CLOSE_CHANNEL_SCRIPT = get_absolute_path(config.get('Paths', 'close_channel_script'))
+SWAP_OUT_SCRIPT = get_absolute_path(config.get('Paths', 'swap_out_script'))
 
 ENABLE_AUTOFEE = config.getboolean('Control', 'enable_autofee')
 ENABLE_GET_CLOSED_CHANNELS = config.getboolean('Control', 'enable_get_closed_channels')
 ENABLE_REBALANCER = config.getboolean('Control', 'enable_rebalancer')
 ENABLE_CLOSE_CHANNEL = config.getboolean('Control', 'enable_close_channel')
+ENABLE_SWAP_OUT = config.getboolean('Control', 'enable_swap_out')
 
 db_lock = threading.Lock()
 
@@ -91,6 +93,15 @@ def run_autofee(autofee_main):
             logging.error(f"Error executing {autofee_main.__name__}: {e}")
         time.sleep(SLEEP_AUTOFEE)
 
+def run_swap_out(swap_out_main):
+    try:
+        with db_lock:
+            logging.info(f"Executing function {swap_out_main.__name__}")
+            swap_out_main()
+            logging.info(f"{swap_out_main.__name__} executed successfully")
+    except Exception as e:
+        logging.error(f"Error executing {swap_out_main.__name__}: {e}")
+
 def main():
     threads = []
 
@@ -128,6 +139,13 @@ def main():
             thread5 = threading.Thread(target=run_script_independently, args=(close_channel_main, SLEEP_CLOSECHANNEL))
             threads.append(thread5)
             thread5.start()
+
+        if ENABLE_SWAP_OUT:
+            logging.info("Executing swap_out")
+            swap_out_main = import_main_function(SWAP_OUT_SCRIPT)
+            thread6 = threading.Thread(target=run_swap_out, args=(swap_out_main,))
+            threads.append(thread6)
+            thread6.start()
 
         for thread in threads:
             thread.join()
