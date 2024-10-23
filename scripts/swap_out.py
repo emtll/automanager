@@ -33,6 +33,7 @@ def expand_path(path):
 
 LNDG_DB_PATH = expand_path(config['Paths']['lndg_db_path'])
 DB_PATH = expand_path(config['Paths']['db_path'])
+BOS_PATH = expand_path(config['Paths']['bos_path'])
 STRIKE_API_KEY = config['Swap_out']['strike_api_key']
 OUTBOUND_THRESHOLD = float(config['Swap_out']['outbound_threshold'])
 ONCHAIN_TARGET = int(config['Swap_out']['onchain_target'])
@@ -92,16 +93,16 @@ def get_source_channels():
     return channels
 
 def send_payment_via_bos(ln_address, amount, fee_rate, peer_pubkey, alias):
-    command = f"bos send {ln_address} --amount {amount} --max-fee-rate {fee_rate} --out {peer_pubkey}"
+    command = f"{BOS_PATH} send {ln_address} --amount {amount} --max-fee-rate {fee_rate} --out {peer_pubkey}"
     logging.info(f"Executing command: {command}")
     
     result = subprocess.run(command, shell=True, capture_output=True, text=True)
     
     if result.returncode == 0:
-        logging.info(f"Payment of {amount} sats sent successfully via BOS using channel {alias}.")
+        logging.info(f"Payment of {amount} sats successfully sent via BOS through channel {alias}.")
         return True
     else:
-        logging.error(f"Error sending payment via BOS using channel {alias}. STDOUT: {result.stdout}, STDERR: {result.stderr}")
+        logging.error(f"Error sending payment via BOS through channel {alias}. STDOUT: {result.stdout}, STDERR: {result.stderr}")
         return False
 
 def create_invoice(amount_sats):
