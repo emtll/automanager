@@ -13,6 +13,7 @@ def expand_path(path):
         return os.path.join(os.path.expanduser("~"), path)
     return os.path.expanduser(path)
 
+LNDG_DB_PATH = expand_path(config['Paths']['lndg_db_path'])
 BOS_PATH = expand_path(config['Paths']['bos_path'])
 DB_PATH = expand_path(config['Paths']['db_path'])
 EXCLUSION_FILE_PATH = expand_path(config['Paths']['excluded_peers_path'])
@@ -43,33 +44,35 @@ def calculate_new_fee(total_cost_ppm):
 def is_excluded(pubkey, exclusion_list):
     return pubkey in [entry['pubkey'] for entry in exclusion_list]
 
-def fee_change_checker(chan_id, table_name):
-    conn = sqlite3.connect(DB_PATH, timeout=30)
-    cursor = conn.cursor()
+def fee_change_checker(chan_id):
+    conn_lndg = sqlite3.connect(LNDG_DB_PATH, timeout=30)
+    cursor = conn_lndg.cursor()
     time_limit = datetime.now() - timedelta(seconds=SLEEP_AUTOFEE)
     
-    cursor.execute(f"""
-        SELECT last_outgoing_activity FROM {table_name}
-        WHERE chan_id = ? AND last_outgoing_activity >= ?
-        ORDER BY last_outgoing_activity DESC LIMIT 1
+    cursor.execute("""
+        SELECT timestamp FROM gui_autofees
+        WHERE chan_id = ? AND timestamp >= ?
+        ORDER BY timestamp DESC LIMIT 1
     """, (chan_id, time_limit.strftime('%Y-%m-%d %H:%M:%S')))
     
     result = cursor.fetchone()
-    conn.close()
+    conn_lndg.close()
     
     return result is not None
 
-def adjust_inbound_fee(channel, new_fee, total_cost_ppm, peer_pubkey):
-    projected_margin = new_fee - total_cost_ppm
+def adjust_inbound_fee(channel, new_fee, local_fee_rate, total_cost_ppm, peer_pubkey):
+    current_fee = new_fee if new_fee != local_fee_rate else local_fee_rate
+    projected_margin = current_fee - total_cost_ppm
 
     if projected_margin > 0:
         if channel['tag'] == 'sink':
             inbound_fee = int(projected_margin * 0.50)
         elif channel['tag'] == 'router':
             inbound_fee = int(projected_margin * 0.25)
+        else:
+            inbound_fee = 0
 
         print_with_timestamp(f"Setting inbound fee for channel {channel['alias']} ({peer_pubkey}) to {inbound_fee}")
-
         command = f"{BOS_PATH} fees --set-inbound-rate-discount {inbound_fee} --to {peer_pubkey}"
         print_with_timestamp(f"Executing: {command}")
         os.system(command)
@@ -182,7 +185,7 @@ def main():
             print_with_timestamp(f"Channel {alias} ({pubkey}) is in the exclusion list, skipping...")
             continue
 
-        if fee_change_checker(chan_id, table_name):
+        if fee_change_checker(chan_id):
             print_with_timestamp(f"Channel {alias} ({pubkey}) had a recent fee change, skipping...")
             continue
 
@@ -202,16 +205,8 @@ def main():
             print_with_timestamp(f"Adjusting fee for channel {alias} ({pubkey}) to {new_fee}")
             issue_bos_command(pubkey, new_fee)
 
-            if tag in ["sink", "router"]:
-                adjust_inbound_fee(channel_dict, new_fee, total_cost_ppm, pubkey)
-        else:
-            print_with_timestamp(f"Fee for channel {alias} ({pubkey}) remains unchanged")
-        
-        if new_fee == local_fee_rate:
-            if tag in ["sink", "router"]:
-                adjust_inbound_fee(channel_dict, new_fee, total_cost_ppm, pubkey)
-        else:
-            print_with_timestamp(f"Fee for channel {alias} ({pubkey}) remains unchanged")
+        if tag in ["sink", "router"]:
+            adjust_inbound_fee(channel_dict, new_fee, local_fee_rate, total_cost_ppm, pubkey)
 
     conn.close()
 
