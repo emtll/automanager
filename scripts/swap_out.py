@@ -50,6 +50,57 @@ def connect_lndg_db():
 def connect_db():
     return sqlite3.connect(DB_PATH, timeout=30)
 
+def create_table_if_not_exists():
+    conn = connect_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS strike_onchain_withdrawals (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            payment_quote_id TEXT UNIQUE,
+            amount TEXT,
+            currency TEXT,
+            state TEXT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+def insert_quote(payment_quote_id, amount, currency, state):
+    conn = connect_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT OR IGNORE INTO strike_onchain_withdrawals (payment_quote_id, amount, currency, state)
+        VALUES (?, ?, ?, ?)
+    ''', (payment_quote_id, amount, currency, state))
+    conn.commit()
+    conn.close()
+
+def update_quote_state(payment_quote_id, new_state):
+    conn = connect_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        UPDATE strike_onchain_withdrawals
+        SET state = ?
+        WHERE payment_quote_id = ?
+    ''', (new_state, payment_quote_id))
+    conn.commit()
+    conn.close()
+
+def get_pending_quote_amounts():
+    conn = connect_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT amount FROM strike_onchain_withdrawals WHERE state = 'PENDING'
+    ''')
+    pending_quotes = cursor.fetchall()
+    conn.close()
+
+    total_pending_amount = 0
+    for quote in pending_quotes:
+        total_pending_amount += int(float(quote[0]) * 100_000_000)  # Convertendo de BTC para satoshis
+    return total_pending_amount
+
 def get_onchain_balance():
     result = subprocess.run(['lncli', 'listunspent'], capture_output=True, text=True)
     if result.returncode == 0:
@@ -58,31 +109,68 @@ def get_onchain_balance():
         return total_onchain
     return 0
 
-def get_pending_withdrawals():
+def get_payment_status(payment_quote_id):
     headers = {
         'Authorization': f'Bearer {STRIKE_API_KEY}',
         'Accept': 'application/json',
     }
 
     try:
-        response = requests.get('https://api.strike.me/v1/balances', headers=headers)
+        payment_status_url = f'https://api.strike.me/v1/payments/{payment_quote_id}'
+        response = requests.get(payment_status_url, headers=headers)
         response.raise_for_status()
-        balances = response.json()
+        data = response.json()
+        payment_state = data.get('state', 'UNKNOWN')
 
-        pending_withdrawals = 0
-        for balance in balances:
-            if balance['currency'] == 'BTC':
-                pending_withdrawals += int(float(balance.get('outgoing', 0)) * 100_000_000)
+        logging.info(f"Payment status for {payment_quote_id}: {payment_state}")
+        
+        update_quote_state(payment_quote_id, payment_state)
 
-        logging.info(f"Pending withdrawals: {pending_withdrawals} satoshis")
-        return pending_withdrawals
+        return payment_state
 
     except requests.exceptions.HTTPError as http_err:
-        logging.error(f"HTTP error while checking pending withdrawals: {http_err}")
+        logging.error(f"HTTP error while checking payment status: {http_err}")
     except Exception as err:
-        logging.error(f"Error while checking pending withdrawals: {err}")
+        logging.error(f"Error while checking payment status: {err}")
 
-    return 0
+    return None
+
+def get_pending_onchain_withdrawals():
+    headers = {
+        'Authorization': f'Bearer {STRIKE_API_KEY}',
+        'Accept': 'application/json',
+    }
+
+    pending_quotes = []
+
+    try:
+        response = requests.get('https://api.strike.me/v1/payments', headers=headers)
+        response.raise_for_status()
+        payments = response.json()
+
+        for payment in payments:
+            state = payment.get('state', 'UNKNOWN')
+            if state == "PENDING":
+                payment_type = payment.get('type', '').lower()
+                payment_id = payment.get('paymentId', 'UNKNOWN')
+
+                if payment_type == 'onchain':
+                    payment_quote_id = payment.get('paymentQuoteId', None)
+
+                    if payment_quote_id:
+                        pending_quotes.append(payment_quote_id)
+                        logging.info(f"Found pending onchain payment quote: {payment_quote_id}")
+                    else:
+                        logging.warning(f"No paymentQuoteId found for payment ID: {payment_id}")
+
+        return pending_quotes
+
+    except requests.exceptions.HTTPError as http_err:
+        logging.error(f"HTTP error while retrieving pending onchain withdrawals: {http_err}")
+    except Exception as err:
+        logging.error(f"Error while retrieving pending onchain withdrawals: {err}")
+
+    return []
 
 def get_source_channels():
     conn = connect_db()
@@ -212,7 +300,12 @@ def withdraw_to_btc_address(btc_address, amount):
 
         data = response.json()
         payment_quote_id = data['paymentQuoteId']
+        amount_str = data['totalAmount']['amount']
+        currency_str = data['totalAmount']['currency']
+        
         logging.info(f"Onchain quote generated successfully: {payment_quote_id}")
+
+        insert_quote(payment_quote_id, amount_str, currency_str, 'PENDING')
 
         execute_payment_url = f'https://api.strike.me/v1/payment-quotes/{payment_quote_id}/execute'
         execute_response = requests.patch(execute_payment_url, headers=headers)
@@ -226,15 +319,14 @@ def withdraw_to_btc_address(btc_address, amount):
         logging.error(f"Error during withdrawal: {err}")
 
 def main():
+    create_table_if_not_exists()
     while True:
         logging.info("Starting onchain and Strike balance check...")
-
         current_onchain_balance = get_onchain_balance()
-        pending_withdrawals = get_pending_withdrawals()
-        total_onchain_balance = current_onchain_balance + pending_withdrawals
-
         logging.info(f"Current onchain balance: {current_onchain_balance} satoshis.")
-        logging.info(f"Pending withdrawals in Strike: {pending_withdrawals} satoshis.")
+        pending_onchain_withdrawals = get_pending_quote_amounts()
+        logging.info(f"Total pending onchain withdrawals: {pending_onchain_withdrawals} satoshis.")
+        total_onchain_balance = current_onchain_balance + pending_onchain_withdrawals
         logging.info(f"Total onchain balance: {total_onchain_balance} satoshis. Target: {ONCHAIN_TARGET} satoshis.")
 
         if total_onchain_balance >= ONCHAIN_TARGET:
@@ -243,7 +335,7 @@ def main():
             strike_balance = get_strike_balance()
             logging.info(f"Available Strike balance: {strike_balance} satoshis.")
 
-            if strike_balance >= 0:
+            if strike_balance > 0:
                 invoice = create_invoice(strike_balance)
                 logging.info(f"Invoice created: {invoice}")
 
@@ -262,6 +354,8 @@ def main():
                     logging.error("Error creating LN invoice.")
             else:
                 logging.info("Insufficient Strike balance for LN withdrawal.")
+            
+            time_to_sleep = 3600
         else:
             logging.info(f"Onchain balance of {total_onchain_balance} below target of {ONCHAIN_TARGET}. Starting BOS payments...")
 
@@ -288,14 +382,23 @@ def main():
                     except Exception as e:
                         logging.error(f"Error executing BOS payment via channel {alias}: {e}")
 
+            time_to_sleep = CHECK_INTERVAL_SECONDS
+
         current_onchain_balance = get_onchain_balance()
-        pending_withdrawals = get_pending_withdrawals()
-        total_onchain_balance = current_onchain_balance + pending_withdrawals
+        pending_onchain_withdrawals = get_pending_quote_amounts()
+        total_onchain_balance = current_onchain_balance + pending_onchain_withdrawals
         amount_needed_to_target = ONCHAIN_TARGET - total_onchain_balance
         strike_balance = get_strike_balance()
 
+        logging.info(f"Updated onchain balance: {current_onchain_balance} satoshis.")
+        logging.info(f"Updated pending onchain withdrawals: {pending_onchain_withdrawals} satoshis.")
+        logging.info(f"Updated total onchain balance: {total_onchain_balance} satoshis.")
+        logging.info(f"Amount needed to reach target: {amount_needed_to_target} satoshis.")
+
         if total_onchain_balance < ONCHAIN_TARGET:
-            if amount_needed_to_target >= MIN_STRIKE_WITHDRAWAL and amount_needed_to_target <= WITHDRAW_AMOUNT_SATOSHIS and strike_balance >= amount_needed_to_target:
+            if (amount_needed_to_target >= MIN_STRIKE_WITHDRAWAL and
+                amount_needed_to_target <= WITHDRAW_AMOUNT_SATOSHIS and
+                strike_balance >= amount_needed_to_target):
                 amount_to_withdraw = amount_needed_to_target
                 logging.info(f"Withdrawing {amount_to_withdraw} satoshis to reach the onchain target.")
                 btc_address = generate_new_btc_address()
@@ -303,7 +406,9 @@ def main():
                     withdraw_to_btc_address(btc_address, amount_to_withdraw)
                 else:
                     logging.error("Failed to generate BTC address for withdrawal.")
-            elif amount_needed_to_target >= MIN_STRIKE_WITHDRAWAL and amount_needed_to_target > WITHDRAW_AMOUNT_SATOSHIS and strike_balance >= WITHDRAW_AMOUNT_SATOSHIS:
+            elif (amount_needed_to_target >= MIN_STRIKE_WITHDRAWAL and
+                  amount_needed_to_target > WITHDRAW_AMOUNT_SATOSHIS and
+                  strike_balance >= WITHDRAW_AMOUNT_SATOSHIS):
                 amount_to_withdraw = WITHDRAW_AMOUNT_SATOSHIS
                 logging.info(f"Withdrawing {amount_to_withdraw} satoshis to reach the onchain target.")
                 btc_address = generate_new_btc_address()
@@ -311,7 +416,8 @@ def main():
                     withdraw_to_btc_address(btc_address, amount_to_withdraw)
                 else:
                     logging.error("Failed to generate BTC address for withdrawal.")
-            elif amount_needed_to_target < MIN_STRIKE_WITHDRAWAL and strike_balance >= WITHDRAW_AMOUNT_SATOSHIS:
+            elif (amount_needed_to_target < MIN_STRIKE_WITHDRAWAL and
+                  strike_balance >= WITHDRAW_AMOUNT_SATOSHIS):
                 amount_to_withdraw = WITHDRAW_AMOUNT_SATOSHIS
                 logging.info(f"Withdrawing {amount_to_withdraw} satoshis to reach the onchain target.")
                 btc_address = generate_new_btc_address()
@@ -322,8 +428,8 @@ def main():
         else:
             logging.info("Insufficient Strike balance for withdrawal.")
 
-        logging.info(f"Pausing for {CHECK_INTERVAL_SECONDS} seconds until the next check.")
-        time.sleep(CHECK_INTERVAL_SECONDS)
-
+        logging.info(f"Pausing for {time_to_sleep} seconds until the next check.")
+        time.sleep(time_to_sleep)
+        
 if __name__ == "__main__":
     main()
