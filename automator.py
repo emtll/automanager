@@ -57,91 +57,87 @@ def import_main_function(script_path):
         module = __import__(module_name)
         return module.main
     except Exception as e:
-        logging.error(f"Error importing 'main' function from {script_path}: {e}")
+        logging.error(f"Erro ao importar a função 'main' de {script_path}: {e}")
         raise
 
 def run_script_independently(main_function, sleep_time):
     while True:
         try:
-            with db_lock:
-                logging.info(f"Executing function {main_function.__name__}")
-                main_function()
-                logging.info(f"{main_function.__name__} executed successfully")
+            logging.info(f"Executando a função {main_function.__name__}")
+            main_function()
+            logging.info(f"{main_function.__name__} executada com sucesso")
         except Exception as e:
-            logging.error(f"Error executing {main_function.__name__}: {e}")
+            logging.error(f"Erro ao executar {main_function.__name__}: {e}")
         time.sleep(sleep_time)
 
 def run_get_channels(get_channels_main):
     while True:
         try:
-            with db_lock:
-                logging.info(f"Executing function {get_channels_main.__name__}")
-                get_channels_main()
-                logging.info(f"{get_channels_main.__name__} executed successfully")
+            logging.info(f"Executando a função {get_channels_main.__name__}")
+            get_channels_main()
+            logging.info(f"{get_channels_main.__name__} executada com sucesso")
         except Exception as e:
-            logging.error(f"Error executing {get_channels_main.__name__}: {e}")
+            logging.error(f"Erro ao executar {get_channels_main.__name__}: {e}")
         time.sleep(SLEEP_GET_CHANNELS)
 
 def run_autofee(autofee_main):
     while True:
         try:
-            with db_lock:
-                logging.info(f"Executing function {autofee_main.__name__}")
-                autofee_main()
-                logging.info(f"{autofee_main.__name__} executed successfully")
+            logging.info(f"Executando a função {autofee_main.__name__}")
+            autofee_main()
+            logging.info(f"{autofee_main.__name__} executada com sucesso")
         except Exception as e:
-            logging.error(f"Error executing {autofee_main.__name__}: {e}")
+            logging.error(f"Erro ao executar {autofee_main.__name__}: {e}")
         time.sleep(SLEEP_AUTOFEE)
 
 def run_swap_out(swap_out_main):
     try:
-        with db_lock:
-            logging.info(f"Executing function {swap_out_main.__name__}")
-            swap_out_main()
-            logging.info(f"{swap_out_main.__name__} executed successfully")
+        logging.info(f"Executando a função {swap_out_main.__name__}")
+        swap_out_main()
+        logging.info(f"{swap_out_main.__name__} executada com sucesso")
     except Exception as e:
-        logging.error(f"Error executing {swap_out_main.__name__}: {e}")
+        logging.error(f"Erro ao executar {swap_out_main.__name__}: {e}")
 
 def main():
     threads = []
 
     try:
-        logging.info("Executing get_channels")
+        logging.info("Iniciando get_channels")
         get_channels_main = import_main_function(GET_CHANNELS_SCRIPT)
         thread1 = threading.Thread(target=run_get_channels, args=(get_channels_main,))
         threads.append(thread1)
         thread1.start()
 
         if ENABLE_AUTOFEE:
-            logging.info("Executing autofee")
+            logging.info("Iniciando autofee")
             autofee_main = import_main_function(AUTO_FEE_SCRIPT)
             thread2 = threading.Thread(target=run_autofee, args=(autofee_main,))
             threads.append(thread2)
             thread2.start()
 
         if ENABLE_GET_CLOSED_CHANNELS:
-            logging.info("Executing get_closed_channels")
+            logging.info("Iniciando get_closed_channels")
             get_closed_channels_main = import_main_function(GET_CLOSED_CHANNELS_SCRIPT)
             thread3 = threading.Thread(target=run_script_independently, args=(get_closed_channels_main, SLEEP_GET_CLOSED_CHANNELS))
             threads.append(thread3)
             thread3.start()
 
         if ENABLE_REBALANCER:
-            logging.info("Executing rebalancer")
+            logging.info("Iniciando rebalancer")
             rebalancer_main = import_main_function(REBALANCER_SCRIPT)
             thread4 = threading.Thread(target=run_script_independently, args=(rebalancer_main, SLEEP_REBALANCER))
             threads.append(thread4)
             thread4.start()
 
         if ENABLE_CLOSE_CHANNEL:
-            logging.info("Executing close_channel")
+            logging.info("Iniciando close_channel")
             close_channel_main = import_main_function(CLOSE_CHANNEL_SCRIPT)
             thread5 = threading.Thread(target=run_script_independently, args=(close_channel_main, SLEEP_CLOSECHANNEL))
             threads.append(thread5)
             thread5.start()
 
         if ENABLE_SWAP_OUT:
-            logging.info("Executing swap_out")
+            logging.info("Iniciando swap_out")
             swap_out_main = import_main_function(SWAP_OUT_SCRIPT)
             thread6 = threading.Thread(target=run_swap_out, args=(swap_out_main,))
             threads.append(thread6)
@@ -151,15 +147,15 @@ def main():
             thread.join()
 
     except Exception as e:
-        logging.error(f"Unexpected error in the main controller: {e}")
+        logging.error(f"Erro inesperado no controlador principal: {e}")
         raise
 
 if __name__ == "__main__":
-    logging.info("Starting the automator")
+    logging.info("Iniciando o automator")
     try:
         main()
     except KeyboardInterrupt:
-        logging.info("Automator manually interrupted")
+        logging.info("Automator interrompido manualmente")
     except Exception as e:
-        logging.error(f"Unexpected error in automator: {e}")
-    logging.info("Automator finished")
+        logging.error(f"Erro inesperado no automator: {e}")
+    logging.info("Automator finalizado")

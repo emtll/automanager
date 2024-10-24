@@ -135,12 +135,12 @@ def adjust_router_fee(channel):
         return 100  # Set Fee Rate to 100ppm 
     elif total_cost_ppm > 0 and total_cost_ppm < 100:
         return int(total_cost_ppm * 2) # Set Fee Rate to 2x the total_cost_ppm
+    elif days_since_last_activity(last_rebalance) > 21 and outbound_ratio <= 10:
+        return int(local_fee_rate * 1.5) # Set Fee Rate to 1.5x the local_fee_rate
     elif outbound_ratio <= 10.0 and days_since_last_activity(last_rebalance) >= 1 and local_fee_rate < MAX_FEE_THRESHOLD:
         return int(local_fee_rate * 1.03)  # Fee Increase 3%
     elif outbound_ratio <= 10.0 and days_since_last_activity(last_rebalance) < 1 and local_fee_rate < MAX_FEE_THRESHOLD:
         return int(local_fee_rate * 1.02)  # Fee Increase 2%
-    elif days_since_last_activity(last_rebalance) > 21 and outbound_ratio <= 10:
-        return int(local_fee_rate * 1.5) # Set Fee Rate to 1.5x the local_fee_rate
     elif outbound_ratio >= 10.0 and outbound_ratio < 30.0 and days_since_last_activity(last_rebalance) >= 3:
         return int(local_fee_rate * 1.01)  # Fee Increase 1%
     elif outbound_ratio >= 30.0 and days_since_last_activity(last_outgoing) >= 3:
