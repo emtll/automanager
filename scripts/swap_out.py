@@ -98,7 +98,7 @@ def get_pending_quote_amounts():
 
     total_pending_amount = 0
     for quote in pending_quotes:
-        total_pending_amount += int(float(quote[0]) * 100_000_000)  # Convertendo de BTC para satoshis
+        total_pending_amount += int(float(quote[0]) * 100_000_000)
     return total_pending_amount
 
 def get_onchain_balance():
@@ -109,31 +109,31 @@ def get_onchain_balance():
         return total_onchain
     return 0
 
-def get_payment_status(payment_quote_id):
+def get_payment_status(payment_id):
+    url = f"https://api.strike.me/v1/payments/{payment_id}"
+    
     headers = {
         'Authorization': f'Bearer {STRIKE_API_KEY}',
-        'Accept': 'application/json',
+        'Accept': 'application/json'
     }
-
+    
     try:
-        payment_status_url = f'https://api.strike.me/v1/payments/{payment_quote_id}'
-        response = requests.get(payment_status_url, headers=headers)
+        response = requests.get(url, headers=headers)
         response.raise_for_status()
         data = response.json()
-        payment_state = data.get('state', 'UNKNOWN')
-
-        logging.info(f"Payment status for {payment_quote_id}: {payment_state}")
         
-        update_quote_state(payment_quote_id, payment_state)
-
+        logging.info(f"API response for payment {payment_id}: {data}")
+        
+        payment_state = data.get('state', 'UNKNOWN')
+        
         return payment_state
-
+    
     except requests.exceptions.HTTPError as http_err:
         logging.error(f"HTTP error while checking payment status: {http_err}")
     except Exception as err:
         logging.error(f"Error while checking payment status: {err}")
 
-    return None
+    return 'UNKNOWN'
 
 def get_pending_onchain_withdrawals():
     headers = {
@@ -302,7 +302,7 @@ def withdraw_to_btc_address(btc_address, amount):
         payment_quote_id = data['paymentQuoteId']
         amount_str = data['totalAmount']['amount']
         currency_str = data['totalAmount']['currency']
-        
+
         logging.info(f"Onchain quote generated successfully: {payment_quote_id}")
 
         insert_quote(payment_quote_id, amount_str, currency_str, 'PENDING')
@@ -311,7 +311,15 @@ def withdraw_to_btc_address(btc_address, amount):
         execute_response = requests.patch(execute_payment_url, headers=headers)
         execute_response.raise_for_status()
 
-        logging.info(f"Withdrawal of {amount} satoshis sent to {btc_address} with tier_free and quote executed")
+        execute_data = execute_response.json()
+        payment_id = execute_data.get('paymentId')
+
+        if payment_id:
+            logging.info(f"Payment executed successfully. Payment ID: {payment_id}")
+            update_quote_state(payment_quote_id, 'PENDING')
+            logging.info(f"State updated in the database to PENDING with paymentId {payment_id}.")
+        else:
+            logging.error(f"Could not retrieve paymentId for quote {payment_quote_id}.")
 
     except requests.exceptions.HTTPError as http_err:
         logging.error(f"HTTP error during withdrawal: {http_err}")
@@ -321,6 +329,25 @@ def withdraw_to_btc_address(btc_address, amount):
 def main():
     create_table_if_not_exists()
     while True:
+        logging.info("Checking status of pending withdrawals...")
+        conn = connect_db()
+        cursor = conn.cursor()
+        cursor.execute("SELECT payment_quote_id FROM strike_onchain_withdrawals WHERE state = 'PENDING'")
+        pending_quotes = cursor.fetchall()
+        conn.close()
+
+        for quote in pending_quotes:
+            payment_quote_id = quote[0]
+            payment_state = get_payment_status(payment_quote_id)
+            if payment_state == 'COMPLETED':
+                update_quote_state(payment_quote_id, 'COMPLETED')
+                logging.info(f"Payment {payment_quote_id} completed and state updated in the database.")
+            elif payment_state == 'FAILED':
+                update_quote_state(payment_quote_id, 'FAILED')
+                logging.info(f"Payment {payment_quote_id} failed and state updated in the database.")
+            else:
+                logging.info(f"Payment {payment_quote_id} is still pending.")
+
         logging.info("Starting onchain and Strike balance check...")
         current_onchain_balance = get_onchain_balance()
         logging.info(f"Current onchain balance: {current_onchain_balance} satoshis.")
@@ -354,7 +381,7 @@ def main():
                     logging.error("Error creating LN invoice.")
             else:
                 logging.info("Insufficient Strike balance for LN withdrawal.")
-            
+
             time_to_sleep = 3600
         else:
             logging.info(f"Onchain balance of {total_onchain_balance} below target of {ONCHAIN_TARGET}. Starting BOS payments...")
