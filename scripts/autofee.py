@@ -103,10 +103,12 @@ def adjust_sink_fee(channel):
     last_outgoing = channel['last_outgoing_activity']   # last_outgoing_activity
     last_rebalance = channel['last_rebalance']          # last_rebalance
 
-    if total_cost_ppm == 0:
+    if total_cost_ppm == 0 and days_since_last_activity(last_rebalance) <= 21:
         return 100  # Set Fee Rate to 100ppm 
-    elif total_cost_ppm < 100 and total_cost_ppm > 0:
+    elif total_cost_ppm > 0 and total_cost_ppm < 100 and days_since_last_activity(last_rebalance) <= 21:
         return int(total_cost_ppm * 2) # Set Fee Rate to 2x the total_cost_ppm
+    elif days_since_last_activity(last_rebalance) > 21:
+        return 2500 # Set Fee Rate to 2500ppm 
     elif outbound_ratio <= 10.0 and days_since_last_activity(last_rebalance) >= 2 and local_fee_rate < MAX_FEE_THRESHOLD:
         return int(local_fee_rate * 1.05)  # Fee Increase 5%
     elif outbound_ratio <= 10.0 and days_since_last_activity(last_rebalance) < 2 and local_fee_rate < MAX_FEE_THRESHOLD:
@@ -129,14 +131,16 @@ def adjust_router_fee(channel):
     last_outgoing = channel['last_outgoing_activity']   # last_outgoing_activity
     last_rebalance = channel['last_rebalance']          # last_rebalance
 
-    if total_cost_ppm == 0:
+    if total_cost_ppm == 0 and outbound_ratio > 10:
         return 100  # Set Fee Rate to 100ppm 
-    elif total_cost_ppm < 100 and total_cost_ppm > 0:
+    elif total_cost_ppm > 0 and total_cost_ppm < 100:
         return int(total_cost_ppm * 2) # Set Fee Rate to 2x the total_cost_ppm
     elif outbound_ratio <= 10.0 and days_since_last_activity(last_rebalance) >= 1 and local_fee_rate < MAX_FEE_THRESHOLD:
         return int(local_fee_rate * 1.03)  # Fee Increase 3%
     elif outbound_ratio <= 10.0 and days_since_last_activity(last_rebalance) < 1 and local_fee_rate < MAX_FEE_THRESHOLD:
         return int(local_fee_rate * 1.02)  # Fee Increase 2%
+    elif days_since_last_activity(last_rebalance) > 21 and outbound_ratio <= 10:
+        return int(local_fee_rate * 1.5) # Set Fee Rate to 1.5x the local_fee_rate
     elif outbound_ratio >= 10.0 and outbound_ratio < 30.0 and days_since_last_activity(last_rebalance) >= 3:
         return int(local_fee_rate * 1.01)  # Fee Increase 1%
     elif outbound_ratio >= 30.0 and days_since_last_activity(last_outgoing) >= 3:
@@ -193,8 +197,10 @@ def main():
             new_fee = adjust_new_channel_fee(channel_dict)
         elif tag == "sink":
             new_fee = adjust_sink_fee(channel_dict)
+            adjust_inbound_fee(channel_dict, new_fee, local_fee_rate, total_cost_ppm, pubkey)
         elif tag == "router":
             new_fee = adjust_router_fee(channel_dict)
+            adjust_inbound_fee(channel_dict, new_fee, local_fee_rate, total_cost_ppm, pubkey)
         elif tag == "source":
             new_fee = adjust_source_fee(channel_dict)
         else:
@@ -204,9 +210,6 @@ def main():
         if new_fee != local_fee_rate:
             print_with_timestamp(f"Adjusting fee for channel {alias} ({pubkey}) to {new_fee}")
             issue_bos_command(pubkey, new_fee)
-
-        if tag in ["sink", "router"]:
-            adjust_inbound_fee(channel_dict, new_fee, local_fee_rate, total_cost_ppm, pubkey)
 
     conn.close()
 
