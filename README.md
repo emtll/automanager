@@ -19,52 +19,41 @@ Automation for Lightning nodes of LND implementation
 ## Abstract
 The Automator LND project is designed to automate the management and optimization of a Lightning Network (LND) node. It integrates data from the LNDg database and various APIs to monitor channel performance, adjust fees, rebalance liquidity, and close channels based on configurable criteria. This project automates key tasks such as tracking channel activity, calculating profitability, and ensuring optimal routing efficiency.
 
-The system relies on a dynamic configuration file (automator.conf) to manage paths, intervals, and thresholds. Key features include monitoring open and closed channels, calculating financial metrics (e.g., revenue, costs, profit, APY), and automating actions such as rebalancing and channel closures. It also ensures that inactive channels are closed based on activity patterns and liquidity movement, and integrates with external tools like charge-lnd and Mempool.Space to manage fees and transactions efficiently.
+The system relies on a dynamic configuration file (automator.conf) to manage paths, intervals, and thresholds. Key features include monitoring open and closed channels, calculating financial metrics (e.g., revenue, costs, profit, APY), and automating actions such as rebalancing and channel closures. It also ensures that inactive channels are closed based on activity patterns and liquidity movement, and integrates with external tools like charge-lnd and [mempool.space](https://mempool.space/) to manage fees and transactions efficiently.
 
 By automating these processes, Automator LND reduces manual intervention, enhances node performance, and helps node operators maintain efficient routing while maximizing revenue and minimizing costs. This system is essential for optimizing the liquidity and routing potential of a Lightning Network node.
 
 ## Motivation
-Managing a Lightning Network node used to be a time-consuming, repetitive, and often frustrating task. I found myself spending countless hours meticulously adjusting fees, monitoring channel activity, rebalancing liquidity, and closing underperforming channels—all manually. Each operation demanded constant attention and intervention, diverting precious time away from more innovative and meaningful developments. It felt like a never-ending cycle of operational maintenance that stifled my productivity.
+Managing a Lightning Network node used to be a time-consuming, repetitive, and often frustrating task. I found myself spending countless hours meticulously adjusting fees, monitoring channel activity, rebalancing liquidity, and closing underperforming channel all manually. Each operation demanded constant attention and intervention, diverting precious time away from more innovative and meaningful developments. It felt like a never-ending cycle of operational maintenance that stifled my productivity.
 
 I realized I was stuck in the grind of maintaining the very infrastructure that was supposed to fuel my projects. This inefficiency was no longer sustainable. The need for automation became glaringly obvious, a solution that could free me from the burden of manual node management.
 
 That’s when Automator LND was born. This project was designed to reclaim those lost hours, offering a fully automated solution for managing channels, adjusting fees, and optimizing liquidity. By delegating these repetitive tasks to an intelligent, automated system, I can now focus on more strategic developments, knowing that my node is running optimally in the background.
 
-In short, Automator LND is more than just a tool—it's a game-changer. It has given me back control of my time and allowed me to direct my energy toward innovation, rather than endlessly managing channels.
+In short, Automator LND is more than just a tool-it's a game-changer. It has given me back control of my time and allowed me to direct my energy toward innovation, rather than endlessly managing channels.
 
 ## Requirements
 To run the Automator LND project, the following dependencies and tools are required:
 
-Dependencies
-Ensure the following Python libraries are installed:
+- [LNDg](https://github.com/cryptosharks131/lndg):
 
-sqlite3: For database operations.
-requests: To interact with external APIs, such as Mempool.Space.
-configparser: To read and manage the automator.conf configuration file.
-subprocess: For executing system-level commands, such as restarting services or running binaries.
-You can install the required Python packages with:
+  - The script relies on the LNDg database (lndg.db) to gather detailed data on channel activity, payments, and forwardings. Ensure LNDg is installed and running, and the database path is correctly configured in automator.conf.
 
-bash
-Copy code
-pip install requests
-Required Tools and Services
-In addition to Python dependencies, the following tools and services are essential for the full functionality of Automator LND:
+- [Charge-lnd](https://github.com/accumulator/charge-lnd):
 
-LNDg:
+  - Charge-lnd is used to manage Lightning Network channel fees and disable channels before closure. The script integrates with this tool for automatic channel management. Ensure charge-lnd is installed and the binary path is set in automator.conf.
 
-The script relies on the LNDg database (lndg.db) to gather detailed data on channel activity, payments, and forwardings. Ensure LNDg is installed and running, and the database path is correctly configured in automator.conf.
-Charge-lnd:
+- [Balance of Satoshis (BOS)](https://github.com/alexbosworth/balanceofsatoshis):
 
-Charge-lnd is used to manage Lightning Network channel fees and disable channels before closure. The script integrates with this tool for automatic channel management. Ensure charge-lnd is installed and the binary path is set in automator.conf.
-Balance of Satoshis (BOS):
+  - Balance of Satoshis is used for fee management and to issue commands related to node operations. Ensure BOS is installed, and the path to the binary is configured properly in automator.conf.
 
-Balance of Satoshis is used for fee management and to issue commands related to node operations. Ensure BOS is installed, and the path to the binary is configured properly in automator.conf.
-Regolancer:
+- [Regolancer](https://github.com/rkfg/regolancer):
 
-Regolancer handles the automatic rebalancing of Lightning channels. It ensures liquidity is balanced across channels to optimize routing and node performance. You need regolancer installed and configured.
-Regolancer-Controller:
+  - Regolancer handles the automatic rebalancing of Lightning channels. It ensures liquidity is balanced across channels to optimize routing and node performance. You need regolancer installed and configured.
 
-Regolancer-Controller is a systemd service that runs and manages regolancer. The Automator LND script interacts with this service to manage rebalancing activities. Ensure the service is installed and operational.
+- [Regolancer-Controller](https://github.com/jvxis/regolancer-controller):
+
+  - Regolancer-Controller is a systemd service that runs and manages regolancer. The Automator LND script interacts with this service to manage rebalancing activities. Ensure the service is installed and operational.
 
 ## Installation
 
