@@ -61,23 +61,30 @@ To run the Automator LND project, the following dependencies and tools are requi
 ## General Configuration
 The automator.conf file is a central configuration file that governs the behavior of the Automator LND project. It allows for flexible control over the various automation scripts, paths, APIs, and operational parameters. Below is a detailed breakdown of the configuration sections:
 
+- This section enables or disables key features of the automation system:
+```
 [Control]
-This section enables or disables key features of the automation system:
 
-enable_autofee: Enables the automatic fee adjustment process for channels. (Default: true)
-enable_get_closed_channels: Enables the process to fetch and update data for closed channels. (Default: true)
-enable_rebalancer: Enables the automatic rebalancing of channels. (Default: true)
+enable_autofee: Enables the automatic fee adjustment process for channels. (Default: false)
+enable_get_closed_channels: Enables the process to fetch and update data for closed channels. (Default: false)
+enable_rebalancer: Enables the automatic rebalancing of channels. (Default: false)
 enable_close_channel: Enables the automatic closure of inactive or unprofitable channels. (Default: false)
+```
+
+- This section defines the sleep intervals (in seconds) for various scripts, controlling how frequently they are executed:
+```
 [Automation]
-This section defines the sleep intervals (in seconds) for various scripts, controlling how frequently they are executed:
 
 sleep_autofee: Interval for the autofee.py script to run. (Default: 14400 seconds, i.e., 4 hours)
 sleep_get_channels: Interval for fetching active channel data. (Default: 900 seconds, i.e., 15 minutes)
 sleep_get_closed_channels: Interval for fetching closed channel data. (Default: 604800 seconds, i.e., 1 week)
 sleep_rebalancer: Interval for the auto-rebalancer-config.py script. (Default: 86400 seconds, i.e., 24 hours)
 sleep_closechannel: Interval for checking and closing inactive channels. (Default: 86400 seconds, i.e., 24 hours)
+```
+
+- This section specifies the paths to critical files and directories:
+```
 [Paths]
-This section specifies the paths to critical files and directories:
 
 lndg_db_path: Path to the LNDg database, which contains historical channel data. (Default: lndg/data/db.sqlite3)
 bos_path: Path to the Balance of Satoshis (BOS) binary used for node operations. (Default: .npm-global/bin/bos)
@@ -90,27 +97,42 @@ autofee_script: Path to the script responsible for adjusting fees. (Default: scr
 get_closed_channels_script: Path to the script for fetching closed channel data. (Default: scripts/get_closed_channels_data.py)
 rebalancer_script: Path to the script that handles automatic rebalancing. (Default: scripts/auto-rebalancer-config.py)
 close_channel_script: Path to the script for closing inactive channels. (Default: scripts/closechannel.py)
+```
+
+- This section configures the behavior of the fee adjustment process:
+```
 [Autofee]
-This section configures the behavior of the fee adjustment process:
 
 max_fee_threshold: Maximum allowable fee rate (in PPM) for a channel before the fee is adjusted. (Default: 2500)
 table_period: Time period (in days) over which to analyze data for fee adjustments. (Default: 30)
+```
+
+- This section handles the configuration for automatic rebalancing using regolancer:
+```
 [AutoRebalancer]
-This section handles the configuration for automatic rebalancing using regolancer:
 
 regolancer-controller_service: Specifies the systemd service responsible for running the regolancer controller. (Default: regolancer-controller.service)
+```
+
+- This section contains API endpoints for external services:
+```
 [API]
-This section contains API endpoints for external services:
 
 mempool_api_url_base: Base URL for fetching transaction details from Mempool.Space. (Default: https://mempool.space/api/tx/)
 mempool_api_url_recomended_fees: URL for fetching recommended fee rates from Mempool.Space. (Default: https://mempool.space/api/v1/fees/recommended)
+```
+
+- This section defines parameters for fetching channel data:
+```
 [Get_channels_data]
-This section defines parameters for fetching channel data:
 
 period: Time period (in days) to analyze channel activity for metrics such as routing and liquidity. (Default: 30)
 router_factor: Factor used to classify channels as sources or sinks based on liquidity movement. (Default: 2)
+```
+
+- This section configures the behavior of the channel closure process:
+```
 [Closechannel]
-This section configures the behavior of the channel closure process:
 
 days_inactive_source: Number of inactive days before a source channel is considered for closure. (Default: 30 days)
 days_inactive_sink: Number of inactive days before a sink channel is considered for closure. (Default: 30 days)
@@ -120,6 +142,7 @@ max_fee_rate: Maximum fee rate (in satoshis per vbyte) allowed for channel closu
 charge_lnd_bin: Path to the charge-lnd binary used for managing channel charges and disabling channels before closure. (Default: charge-lnd)
 charge_lnd_interval: Time interval (in seconds) for running the charge-lnd service. (Default: 300 seconds)
 htlc_check_interval: Time interval (in seconds) for checking pending HTLCs before closing a channel. (Default: 60 seconds)
+```
 
 ## Scripts Explanation
 In this section, we explain transparently how each script works. Feel free to change the logic to suit your use case.
