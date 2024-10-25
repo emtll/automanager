@@ -247,97 +247,115 @@ This script is designed to manage and update the configuration for the regolance
   - If any changes are detected in the exclude_from or to lists, the script saves the updated configuration back to the regolancer JSON file and restarts the regolancer-controller_service to apply the changes.
   - If no changes are detected, the service is not restarted.
 
-- Key Functions:
-  - **restart_service():** Restarts the regolancer-controller service using systemctl if the configuration is updated.
-  - **has_list_changed():** Compares the old and new versions of the lists to determine if changes have occurred.
-  - **get_channels_data():** Retrieves relevant channel data (ID, public key, and tag) from the SQLite database.
-  - **load_json() and save_json():** Load and save the regolancer configuration and the excluded peers list.
+#### Key Functions:
+  - `restart_service():` Restarts the regolancer-controller service using systemctl if the configuration is updated.
+  - `has_list_changed():` Compares the old and new versions of the lists to determine if changes have occurred.
+  - `get_channels_data():` Retrieves relevant channel data (ID, public key, and tag) from the SQLite database.
+  - `load_json()` and `save_json():` Load and save the regolancer configuration and the excluded peers list.
 
 ### [closechannel.py](https://github.com/emtll/automator-lnd/blob/main/scripts/closechannel.py)
 This script automates the process of monitoring and closing Lightning Network (LND) channels based on certain criteria. It checks if channels are inactive or not meeting liquidity thresholds and then closes them after confirming that no pending HTLCs exist. The script uses a configuration file (automator.conf) to manage paths, intervals, and settings.
 
-Key Features:
-Configuration Management:
+#### Key Features:
 
-The script reads from automator.conf for paths (database, excluded peers, and charge-lnd config) and parameters such as inactivity thresholds and fee rates.
-Paths are expanded to ensure compatibility with both relative and absolute paths.
-Channel Monitoring:
+- Configuration Management:
 
-Channels are classified as source, sink, router, or new_channel, each with different criteria for inactivity and movement thresholds.
-The script calculates the percentage of liquidity movement (routing) for each channel and checks the number of days since its last activity.
-Channels that exceed the configured inactivity period and have low liquidity movement are flagged for closure.
-Channel Closure Logic:
+  - The script reads from automator.conf for paths (database, excluded peers, and charge-lnd config) and parameters such as inactivity thresholds and fee rates.
+  - Paths are expanded to ensure compatibility with both relative and absolute paths.
 
-Exclusion List: Channels whose peers are listed in the excluded peers file are skipped.
-Activity Check: Channels are evaluated based on their tags (source, sink, router) and the last recorded activity (inbound or outbound). Channels with no recent activity are considered for closure.
-Movement Percentage: Channels with low liquidity movement below a defined threshold are marked for closure.
-Pending HTLCs Check:
+- Channel Monitoring:
 
-Before closing any channel, the script checks the database for pending HTLCs on that channel. If HTLCs are found, the script retries after a set interval.
-Mempool Fee Check:
+  - Channels are classified as source, sink, router, or new_channel, each with different criteria for inactivity and movement thresholds.
+  - The script calculates the percentage of liquidity movement (routing) for each channel and checks the number of days since its last activity.
+  - Channels that exceed the configured inactivity period and have low liquidity movement are flagged for closure.
 
-The script uses the Mempool.Space API to check the current high-priority fee for closing a channel. If the fee is below a user-defined threshold, it proceeds with closing the channel; otherwise, it waits and retries.
-Charge-lnd Integration:
+- Channel Closure Logic:
 
-For channels meeting the closure criteria, a configuration file for charge-lnd is created or updated, and the charge-lnd binary is executed to disable the channel before closing.
-Channel Closure:
+  - **Exclusion List:** Channels whose peers are listed in the excluded peers file are skipped.
+  - **Activity Check:** Channels are evaluated based on their tags (source, sink, router) and the last recorded activity (inbound or outbound). Channels with no recent activity are considered for closure.
+  - **Movement Percentage:** Channels with low liquidity movement below a defined threshold are marked for closure.
 
-The script retrieves the funding transaction ID and output index of the channel, and then attempts to close it using the lncli closechannel command, with a fee rate retrieved from the Mempool.Space API.
-Looping Behavior:
+- Pending HTLCs Check:
 
-The script continuously monitors channels and checks for closure criteria in a loop, allowing it to react to changes in channel activity over time.
-Key Functions:
-monitor_and_close_channels(): The core function that monitors all channels in the database, evaluates whether they should be closed, and initiates the closing process.
-should_close_channel(): Determines whether a channel should be closed based on its inactivity, movement percentage, and tag.
-check_pending_htlcs(): Checks if there are any pending HTLCs for a channel, ensuring the channel is not closed while there are unresolved transactions.
-get_high_priority_fee(): Retrieves the current high-priority fee rate from the Mempool.Space API, used to decide the fee rate for closing a channel.
-close_channel(): Executes the lncli closechannel command to close the channel with the appropriate fee rate.
+  - Before closing any channel, the script checks the database for pending HTLCs on that channel. If HTLCs are found, the script retries after a set interval.
+
+- Mempool Fee Check:
+
+  - The script uses the Mempool.Space API to check the current high-priority fee for closing a channel. If the fee is below a user-defined threshold, it proceeds with closing the channel; otherwise, it waits and retries.
+
+- Charge-lnd Integration:
+
+  - For channels meeting the closure criteria, a configuration file for charge-lnd is created or updated, and the charge-lnd binary is executed to disable the channel before closing.
+
+- Channel Closure:
+
+  - The script retrieves the funding transaction ID and output index of the channel, and then attempts to close it using the lncli closechannel command, with a fee rate retrieved from the Mempool.Space API.
+
+- Looping Behavior:
+
+  - The script continuously monitors channels and checks for closure criteria in a loop, allowing it to react to changes in channel activity over time.
+
+#### Key Functions:
+ - `monitor_and_close_channels():` The core function that monitors all channels in the database, evaluates whether they should be closed, and initiates the closing process.
+ - `should_close_channel():` Determines whether a channel should be closed based on its inactivity, movement percentage, and tag.
+ - `check_pending_htlcs():` Checks if there are any pending HTLCs for a channel, ensuring the channel is not closed while there are unresolved transactions.
+ - `get_high_priority_fee():` Retrieves the current high-priority fee rate from the Mempool.Space API, used to decide the fee rate for closing a channel.
+ - `close_channel():` Executes the lncli closechannel command to close the channel with the appropriate fee rate.
 
 ### [get_closed_channels_data.py](https://github.com/emtll/automator-lnd/blob/main/scripts/get_closed_channels_data.py)
 This script automates the process of gathering and updating data on closed channels in a Lightning Network (LND) node. It fetches information from the LNDg database, calculates key financial metrics, and stores this data in a new SQLite database.
 
-Key Features:
-Database Connections:
+#### Key Features:
 
-The script connects to two SQLite databases: the LNDg database (containing channel activity and closure data) and a new database where processed closed channel information is stored.
-Paths for these databases are dynamically set using the automator.conf file.
-Closed Channel Data Collection:
+- Database Connections:
 
-It queries the LNDg database to fetch all channels that have been closed.
-For each closed channel, the script retrieves key details like the public key, channel alias, closing transaction, and funding transaction.
-Financial and Performance Metrics:
+  - The script connects to two SQLite databases: the LNDg database (containing channel activity and closure data) and a new database where processed closed channel information is stored.
+  - Paths for these databases are dynamically set using the automator.conf file.
 
-The script calculates several important metrics for each closed channel, including:
-Total Routed In/Out: Total liquidity routed through the channel.
-Total Cost/Revenue: The cost of rebalancing and revenue from routing.
-Profit: The difference between revenue and cost.
-Profit PPM: Profit per million satoshis routed out.
-Cost PPM and Revenue PPM: The cost and revenue for every million satoshis routed.
-APY and IAPY: Annual percentage yield (APY) and inbound APY (IAPY), based on profit and liquidity movement.
-Sats per Day Profit: Daily profit generated by the channel.
-Assisted Revenue: Revenue generated by assisting other nodes with liquidity.
-Channel Tagging: Channels are tagged as new_channel, source, sink, or router based on liquidity movement patterns.
-Transaction Date Retrieval:
+- Closed Channel Data Collection:
 
-The script uses the Mempool.Space API to fetch the block time of the funding and closing transactions, allowing it to calculate the number of days the channel was open.
-Data Insertion:
+  - It queries the LNDg database to fetch all channels that have been closed.
+  - For each closed channel, the script retrieves key details like the public key, channel alias, closing transaction, and funding transaction.
 
-The processed channel data, including all calculated metrics, is inserted into the closed_channels table in the new database.
-The table structure includes fields like chan_id, pubkey, alias, opening_date, closure_date, total_revenue, profit, and many others.
-Efficient Data Updates:
+- Financial and Performance Metrics:
 
-If a channel is already in the database, it will be updated with the latest calculated data.
-Key Functions:
-connect_db() and connect_new_db(): These functions establish connections to the LNDg database and the new database where processed data is stored.
-create_closed_channels_table(): Creates the closed_channels table if it doesn't exist, with fields to store metrics for closed channels.
-get_closed_channels(): Queries the LNDg database to fetch all closed channels.
-calculate_* Functions: These functions calculate key financial metrics such as PPM (parts per million), profit, APY, IAPY, and daily profits based on liquidity and routing data.
-get_tx_date(): Fetches the block time for a given transaction from the Mempool.Space API, which helps determine when a channel was opened or closed.
-tag(): Tags channels based on their activity and liquidity movement (new_channel, source, sink, or router).
-update_closed_channels_db(): Inserts or updates the calculated metrics for each closed channel into the new database.
-Workflow:
-Connect to Databases: The script connects to both the LNDg and new databases.
-Fetch Closed Channels: It retrieves all closed channels from the LNDg database.
-Calculate Metrics: For each closed channel, it calculates various financial metrics like profit, revenue, and APY.
-Store Data: The calculated metrics are stored in the new database.
-Completion: Once all channels are processed, the script closes the database connections and prints a completion message.
+  - The script calculates several important metrics for each closed channel, including:
+    - `Total Routed In/Out`: Total liquidity routed through the channel.
+    - `Total Cost/Revenue`: The cost of rebalancing and revenue from routing.
+    - `Profit`: The difference between revenue and cost.
+    - `Profit PPM`: Profit per million satoshis routed out.
+    - `Cost PPM and Revenue PPM`: The cost and revenue for every million satoshis routed.
+    - `APY and IAPY`: Annual percentage yield (APY) and inbound APY (IAPY), based on profit and liquidity movement.
+    - `Sats per Day Profit`: Daily profit generated by the channel.
+    - `Assisted Revenue`: Revenue generated by assisting other nodes with liquidity.
+    - `Channel Tagging`: Channels are tagged as new_channel, source, sink, or router based on liquidity movement patterns.
+
+- Transaction Date Retrieval:
+
+  - The script uses the Mempool.Space API to fetch the block time of the funding and closing transactions, allowing it to calculate the number of days the channel was open.
+
+- Data Insertion:
+
+  - The processed channel data, including all calculated metrics, is inserted into the closed_channels table in the new database.
+  - The table structure includes fields like chan_id, pubkey, alias, opening_date, closure_date, total_revenue, profit, and many others.
+
+- Efficient Data Updates:
+
+  - If a channel is already in the database, it will be updated with the latest calculated data.
+
+#### Key Functions:
+
+  - `connect_db() and connect_new_db()`: These functions establish connections to the LNDg database and the new database where processed data is stored.
+  - `create_closed_channels_table()`: Creates the closed_channels table if it doesn't exist, with fields to store metrics for closed channels.
+  - `get_closed_channels()`: Queries the LNDg database to fetch all closed channels.
+  - `calculate_* Functions`: These functions calculate key financial metrics such as PPM (parts per million), profit, APY, IAPY, and daily profits based on liquidity and routing data.
+  - `get_tx_date()`: Fetches the block time for a given transaction from the Mempool.Space API, which helps determine when a channel was opened or closed.
+  - `tag()`: Tags channels based on their activity and liquidity movement (new_channel, source, sink, or router).
+  - `update_closed_channels_db()`: Inserts or updates the calculated metrics for each closed channel into the new database.
+
+- Workflow:
+    - **Connect to Databases:** The script connects to both the LNDg and new databases.
+    - **Fetch Closed Channels:** It retrieves all closed channels from the LNDg database.
+    - **Calculate Metrics:** For each closed channel, it calculates various financial metrics like profit, revenue, and APY.
+    - **Store Data:** The calculated metrics are stored in the new database.
+    - **Completion:** Once all channels are processed, the script closes the database connections and prints a completion message.
