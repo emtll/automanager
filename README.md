@@ -16,6 +16,23 @@ Automation for Lightning nodes of LND implementation
   - Swap outs (soon)
   - Magma auto-saler (soon)
 
+# Index
+
+- [Abstract](#abstract)
+- [Motivation](#motivation)
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [General Configuration](#general-configuration)
+- [Usage](#usage)
+- [Scripts Explanation](#scripts-explanation)
+  - [get_channels_data.py](#get_channels_datapy)
+  - [automation-controller.py](#automation-controllerpy)
+  - [autofee.py](#autofeepy)
+  - [auto-rebalancer-config.py](#auto-rebalancer-configpy)
+  - [closechannel.py](#closechannelpy)
+  - [get_closed_channels_data.py](#get_closed_channels_datapy)
+
+
 ## Abstract
 The Automator LND project is designed to automate the management and optimization of a Lightning Network (LND) node. It integrates data from the LNDg database and various APIs to monitor channel performance, adjust fees, rebalance liquidity, and close channels based on configurable criteria. This project automates key tasks such as tracking channel activity, calculating profitability, and ensuring optimal routing efficiency.
 
@@ -143,6 +160,8 @@ charge_lnd_bin: Path to the charge-lnd binary used for managing channel charges 
 charge_lnd_interval: Time interval (in seconds) for running the charge-lnd service. (Default: 300 seconds)
 htlc_check_interval: Time interval (in seconds) for checking pending HTLCs before closing a channel. (Default: 60 seconds)
 ```
+
+## Usage
 
 ## Scripts Explanation
 In this section, we explain transparently how each script works. Feel free to change the logic to suit your use case.
