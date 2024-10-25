@@ -73,7 +73,101 @@ To run the Automator LND project, the following dependencies and tools are requi
   - Regolancer-Controller is a systemd service that runs and manages regolancer. The Automator LND script interacts with this service to manage rebalancing activities. Ensure the service is installed and operational.
 
 ## Installation
+Follow these steps to clone the repository, check out the specific release tag, and install the required dependencies.
 
+### 1. Clone the repository and checkout the specific release
+
+To clone the repository and checkout the `v1.0.0` tag (or any other release tag), run the following command:
+
+```
+git clone --branch v1.0.0 https://github.com/emtll/automator-lnd.git
+```
+
+This command will clone the repository and switch to the v1.0.0 tag, ensuring you are working with the specific release.
+
+### 2. Navigate to the project directory
+
+```
+cd automator-lnd
+```
+
+### 3. Create a virtual environment (optional but recommended)
+   
+```
+python3 -m venv venv
+source venv/bin/activate
+```
+
+### 4. Install the required dependencies
+Once inside the virtual environment, install the dependencies listed in the `requirements.txt` file:
+
+```
+pip install -r requirements.txt
+```
+
+5. Run the application or scripts
+
+After installing the dependencies, you can now run the scripts or start the automation process:
+
+```
+python automator.py
+```
+
+## Running as a service
+If you want to run the application as a background service using systemd, follow these steps:
+
+### 1. Create a systemd service file
+
+Create a service file in the /etc/systemd/system/ directory called automator-lnd.service:
+
+```
+sudo nano /etc/systemd/system/automator-lnd.service
+```
+
+### 2. Add the following content to the service file:
+
+```
+[Unit]
+Description=Automator LND
+After=lnd.service
+Requires=lnd.service
+
+[Service]
+ExecStart=/usr/bin/python3 /home/<your_user/automator-lnd/automator.py
+WorkingDirectory=/home/admin/automator-lnd/
+StandardOutput=journal
+StandardError=journal
+Restart=always
+User=<your_user>
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Make sure to replace `/path/to/automator-lnd` and `/path/to/venv` with the actual paths to your project directory and virtual environment.
+
+### 3. Reload systemd and enable the service
+
+Reload systemd to recognize the new service and enable it to start automatically on boot:
+
+```
+sudo systemctl daemon-reload
+sudo systemctl enable automator-lnd
+```
+
+### 4. Start the service
+
+```
+sudo systemctl start automator-lnd
+```
+
+### 5. Check the status of the service
+
+To check the status of the service and ensure it's running correctly:
+
+```
+sudo systemctl status automator-lnd
+```
 
 ## Usage
 
