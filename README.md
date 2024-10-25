@@ -22,8 +22,8 @@ Automation for Lightning nodes of LND implementation
 - [Motivation](#motivation)
 - [Requirements](#requirements)
 - [Installation](#installation)
-- [General Configuration](#general-configuration)
 - [Usage](#usage)
+- [General Configuration](#general-configuration)
 - [Scripts Explanation](#scripts-explanation)
   - [get_channels_data.py](#get_channels_datapy)
   - [automation-controller.py](#automation-controllerpy)
@@ -74,6 +74,8 @@ To run the Automator LND project, the following dependencies and tools are requi
 
 ## Installation
 
+
+## Usage
 
 ## General Configuration
 The automator.conf file is a central configuration file that governs the behavior of the Automator LND project. It allows for flexible control over the various automation scripts, paths, APIs, and operational parameters. Below is a detailed breakdown of the configuration sections:
@@ -160,8 +162,6 @@ charge_lnd_bin: Path to the charge-lnd binary used for managing channel charges 
 charge_lnd_interval: Time interval (in seconds) for running the charge-lnd service. (Default: 300 seconds)
 htlc_check_interval: Time interval (in seconds) for checking pending HTLCs before closing a channel. (Default: 60 seconds)
 ```
-
-## Usage
 
 ## Scripts Explanation
 In this section, we explain transparently how each script works. Feel free to change the logic to suit your use case.
