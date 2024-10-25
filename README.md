@@ -221,31 +221,37 @@ This script automates the process of adjusting routing fees for Lightning Networ
 ### [auto-rebalancer-config.py](https://github.com/emtll/automator-lnd/blob/main/scripts/auto-rebalancer-config.py)
 This script is designed to manage and update the configuration for the regolancer tool, which is used for rebalancing channels in an LND node. The script automates the process of modifying two key lists—exclude_from and to—based on data from the database and a list of excluded peers.
 
-Key Features and Workflow:
-Configuration Loading:
+#### Key Features and Workflow:
 
-The script reads paths and service names from automator.conf, including paths to the regolancer configuration file (regolancer_json_path), database (db_path), and excluded peers list (excluded_peers_path).
-Channel Data Handling:
+- Configuration Loading:
 
-It fetches channel information from the opened_channels_lifetime table in the database, which contains channel IDs, public keys, and tags (such as new_channel, sink, router, or source).
-Exclusion List Management:
+  - The script reads paths and service names from automator.conf, including paths to the regolancer configuration file (regolancer_json_path), database (db_path), and excluded peers list (excluded_peers_path).
 
-The script loads the excluded peers from the JSON file specified in the excluded_peers_path. If a channel's public key matches an entry in this list, it is skipped from further processing.
-Rebalancer Configuration Updates:
+- Channel Data Handling:
 
-For each channel, the script checks the channel's tag:
-If the tag is new_channel, sink, or router, the channel ID is added to both the exclude_from and to lists.
-If the tag is source, the channel ID is removed from both lists.
-It then compares the modified lists with the current configuration to detect any changes.
-Saving and Restarting the Service:
+  - It fetches channel information from the opened_channels_lifetime table in the database, which contains channel IDs, public keys, and tags (such as new_channel, sink, router, or source).
 
-If any changes are detected in the exclude_from or to lists, the script saves the updated configuration back to the regolancer JSON file and restarts the regolancer-controller_service to apply the changes.
-If no changes are detected, the service is not restarted.
-Key Functions:
-restart_service(): Restarts the regolancer-controller service using systemctl if the configuration is updated.
-has_list_changed(): Compares the old and new versions of the lists to determine if changes have occurred.
-get_channels_data(): Retrieves relevant channel data (ID, public key, and tag) from the SQLite database.
-load_json() and save_json(): Load and save the regolancer configuration and the excluded peers list.
+- Exclusion List Management:
+
+  - The script loads the excluded peers from the JSON file specified in the excluded_peers_path. If a channel's public key matches an entry in this list, it is skipped from further processing.
+
+- Rebalancer Configuration Updates:
+
+  - For each channel, the script checks the channel's tag:
+    - 1. If the tag is new_channel, sink, or router, the channel ID is added to both the exclude_from and to lists.
+    - 2. If the tag is source, the channel ID is removed from both lists.
+    - 3. It then compares the modified lists with the current configuration to detect any changes.
+
+- Saving and Restarting the Service:
+
+  - If any changes are detected in the exclude_from or to lists, the script saves the updated configuration back to the regolancer JSON file and restarts the regolancer-controller_service to apply the changes.
+  - If no changes are detected, the service is not restarted.
+
+- Key Functions:
+  - **restart_service():** Restarts the regolancer-controller service using systemctl if the configuration is updated.
+  - **has_list_changed():** Compares the old and new versions of the lists to determine if changes have occurred.
+  - **get_channels_data():** Retrieves relevant channel data (ID, public key, and tag) from the SQLite database.
+  - **load_json() and save_json():** Load and save the regolancer configuration and the excluded peers list.
 
 ### [closechannel.py](https://github.com/emtll/automator-lnd/blob/main/scripts/closechannel.py)
 This script automates the process of monitoring and closing Lightning Network (LND) channels based on certain criteria. It checks if channels are inactive or not meeting liquidity thresholds and then closes them after confirming that no pending HTLCs exist. The script uses a configuration file (automator.conf) to manage paths, intervals, and settings.
