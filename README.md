@@ -73,7 +73,12 @@ To run the Automator LND project, the following dependencies and tools are requi
   - Regolancer-Controller is a systemd service that runs and manages regolancer. The Automator LND script interacts with this service to manage rebalancing activities. Ensure the service is installed and operational.
 
 ## Installation
-Follow these steps to clone the repository, check out the specific release tag, and install the required dependencies.
+
+**Before proceeding with the installation, please verify the GPG signature and SHA256 hash of the files.**  
+
+You can find the verification instructions in the latest [release page](https://github.com/emtll/automator-lnd/releases).
+
+Once you've verified the authenticity of the files, follow these steps to install and run the project:
 
 ### 1. Clone the repository and checkout the specific release
 
@@ -105,7 +110,7 @@ Once inside the virtual environment, install the dependencies listed in the `req
 pip install -r requirements.txt
 ```
 
-5. Run the application or scripts
+### 5. Run the application or scripts
 
 After installing the dependencies, you can now run the scripts or start the automation process:
 
