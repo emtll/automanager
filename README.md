@@ -173,45 +173,50 @@ This script is designed to analyze and manage Lightning Network (LND) channel da
    
   - 3. Classifies channels as source, sink, router, or new_channel based on their routing activity.
    
-  - 4. API Usage: The script uses the Mempool.space API to get transaction details (e.g., channel opening dates).
+  - 4. API Usage: The script uses the mempool.space API to get transaction details (e.g., channel opening dates).
 
-- Data Insertion/Update: It inserts or updates the channel data in the new database tables, ensuring that the data is up-to-date for each channel and time period.
+- **Data Insertion/Update:** It inserts or updates the channel data in the new database tables, ensuring that the data is up-to-date for each channel and time period.
 
-- Computation of Financial Metrics: The script calculates a wide range of financial metrics for each channel, such as:
+- **Computation of Financial Metrics:** The script calculates a wide range of financial metrics for each channel, such as:
 
-  - 1. Profit: The difference between revenue and costs.
-  - 2. Profit margin: The percentage of profit relative to the total routed volume.
-  - 3. Annualized Performance (APY and IAPY): How well the channel is performing over time.
+  - 1. **Profit:** The difference between revenue and costs.
+  - 2. **Profit margin:** The percentage of profit relative to the total routed volume.
+  - 3. **Annualized Performance (APY and IAPY):** How well the channel is performing over time.
 
 ### [autofee.py](https://github.com/emtll/automator-lnd/blob/main/scripts/autofee.py)
 This script automates the process of adjusting routing fees for Lightning Network channels based on various conditions like channel liquidity, routing activity, and tag classification. The main idea is to optimize channel fee settings for different types of channels, ensuring efficient liquidity management and maximizing profit.
 
-Key Functions and Logic:
-Configuration and Paths:
+#### Key Functions and Logic:
+ - **Configuration and Paths:**
 
-The script loads configurations (paths, thresholds, periods) from automator.conf, making it flexible and customizable.
-Paths to files like the bos_path (for executing BOS commands) and the excluded_peers_path (channels to exclude from fee adjustments) are expanded and used.
-Channel Classification:
+   - The script loads configurations (paths, thresholds, periods) from automator.conf, making it flexible and customizable.
+   - Paths to files like the bos_path (for executing BOS commands) and the excluded_peers_path (channels to exclude from fee adjustments) are expanded and used.
 
-Channels are categorized as new_channel, sink, router, or source, based on their liquidity and activity patterns.
-Each type has its own logic for fee adjustment.
-Fee Adjustment Logic:
+- **Channel Classification:**
 
-New Channels: Fees are adjusted based on liquidity and how long the channel has been open.
-Sink Channels: Channels with low outbound liquidity and low activity have their fees increased to reduce potential routing failures.
-Router Channels: Fees are adjusted to maintain a balanced liquidity flow between inbound and outbound traffic.
-Source Channels: Channels with high outbound liquidity are incentivized with lower fees to attract more routing.
-Fee Adjustment Commands:
+  - Channels are categorized as new_channel, sink, router, or source, based on their liquidity and activity patterns.
+  - Each type has its own logic for fee adjustment.
 
-The script uses BOS (Balance of Satoshis) commands to actually adjust fees by interacting with the LND node.
-Fee increases or decreases are applied based on the channel's current state, liquidity ratio, and routing activity.
-Exclusion and Recent Fee Changes:
+- **Fee Adjustment Logic:**
 
-Channels that are part of the exclusion list (defined in a JSON file) or have recently undergone fee changes are skipped to avoid unnecessary updates.
-SQL Querying:
+  - **New Channels:** Fees are adjusted based on liquidity and how long the channel has been open.
+  - **Sink Channels:** Channels with low outbound liquidity and low activity have their fees increased to reduce potential routing failures.
+  - **Router Channels:** Fees are adjusted to maintain a balanced liquidity flow between inbound and outbound traffic.
+  - **Source Channels:** Channels with high outbound liquidity are incentivized with lower fees to attract more routing.
 
-Channel data is retrieved from a local SQLite database, which stores the channel's performance metrics and activity logs.
-Data like outbound liquidity, last activity, and cost per million (ppm) is fetched to calculate the new fees.
+- **Fee Adjustment Commands:**
+
+  - The script uses BOS (Balance of Satoshis) commands to actually adjust fees by interacting with the LND node.
+  - Fee increases or decreases are applied based on the channel's current state, liquidity ratio, and routing activity.
+
+- **Exclusion and Recent Fee Changes:**
+
+  - Channels that are part of the exclusion list (defined in a JSON file) or have recently undergone fee changes are skipped to avoid unnecessary updates.
+
+- **SQL Querying:**
+
+  - Channel data is retrieved from a local SQLite database, which stores the channel's performance metrics and activity logs.
+  - Data like outbound liquidity, last activity, and cost per million (ppm) is fetched to calculate the new fees.
 
 ### [auto-rebalancer-config.py](https://github.com/emtll/automator-lnd/blob/main/scripts/auto-rebalancer-config.py)
 This script is designed to manage and update the configuration for the regolancer tool, which is used for rebalancing channels in an LND node. The script automates the process of modifying two key lists—exclude_from and to—based on data from the database and a list of excluded peers.
