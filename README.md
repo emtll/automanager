@@ -150,35 +150,38 @@ In this section, we explain transparently how each script works. Feel free to ch
 ### [automation-controller.py](https://github.com/emtll/automator-lnd/blob/main/automation-controller.py)
 This script serves as the central controller for running multiple automation tasks related to LND node management, such as adjusting routing fees, collecting channel data, performing rebalancing, and closing inactive channels. It executes each task independently, in separate threads, allowing for flexible scheduling and non-blocking operations.
 
-Key Features:
-Multi-threaded Execution: Each task runs in its own thread, so different operations can be executed simultaneously without waiting for others to complete.
-Logging: All significant actions and errors are logged to a file, ensuring proper monitoring of operations.
-Configurable: All paths, sleep intervals, and feature toggles are defined in the automator.conf file, allowing for easy customization without modifying the code.
-Graceful Error Handling: Errors in one thread do not affect other operations, as they are handled individually, and execution continues.
+#### Key Features:
+- **Multi-threaded Execution:** Each task runs in its own thread, so different operations can be executed simultaneously without waiting for others to complete.
+- **Logging:** All significant actions and errors are logged to a file, ensuring proper monitoring of operations.
+- **Configurable:** All paths, sleep intervals, and feature toggles are defined in the automator.conf file, allowing for easy customization without modifying the code.
+- **Graceful Error Handling:** Errors in one thread do not affect other operations, as they are handled individually, and execution continues.
 
 ### [get_channels_data.py](https://github.com/emtll/automator-lnd/blob/main/scripts/get_channels_data.py)
 This script is designed to analyze and manage Lightning Network (LND) channel data over different time periods (e.g., 1 day, 7 days, 30 days, lifetime). It performs the following key tasks:
 
-Database Connections: It connects to two SQLite databases:
+- Database Connections: It connects to two SQLite databases:
 
-LNDg Database: This contains channel activity and liquidity data.
-New Database: This stores processed channel data for different time periods.
-Table Creation: It creates multiple tables (for 1-day, 7-day, 30-day, and lifetime periods) in the new database, each containing detailed information about active channels.
+  - **LNDg Database:** This contains channel activity and liquidity data.
+  - **New Database:** This stores processed channel data for different time periods.
+  - **Table Creation:** It creates multiple tables (for 1-day, 7-day, 30-day, and lifetime periods) in the new database, each containing detailed information about active channels.
 
-Channel Data Analysis: For each active channel, the script:
+- **Channel Data Analysis:** For each active channel, the script:
 
-Fetches relevant metrics, such as liquidity, revenue, costs, and routing activity from the LNDg database.
-Calculates key performance indicators (e.g., profit, revenue_ppm, cost_ppm, rebal_rate, apy).
-Classifies channels as source, sink, router, or new_channel based on their routing activity.
-API Usage: The script uses the Mempool.space API to get transaction details (e.g., channel opening dates).
+  - 1. Fetches relevant metrics, such as liquidity, revenue, costs, and routing activity from the LNDg database.
+   
+  - 2. Calculates key performance indicators (e.g., profit, revenue_ppm, cost_ppm, rebal_rate, apy).
+   
+  - 3. Classifies channels as source, sink, router, or new_channel based on their routing activity.
+   
+  - 4. API Usage: The script uses the Mempool.space API to get transaction details (e.g., channel opening dates).
 
-Data Insertion/Update: It inserts or updates the channel data in the new database tables, ensuring that the data is up-to-date for each channel and time period.
+- Data Insertion/Update: It inserts or updates the channel data in the new database tables, ensuring that the data is up-to-date for each channel and time period.
 
-Computation of Financial Metrics: The script calculates a wide range of financial metrics for each channel, such as:
+- Computation of Financial Metrics: The script calculates a wide range of financial metrics for each channel, such as:
 
-Profit: The difference between revenue and costs.
-Profit margin: The percentage of profit relative to the total routed volume.
-Annualized Performance (APY and IAPY): How well the channel is performing over time.
+  - 1. Profit: The difference between revenue and costs.
+  - 2. Profit margin: The percentage of profit relative to the total routed volume.
+  - 3. Annualized Performance (APY and IAPY): How well the channel is performing over time.
 
 ### [autofee.py](https://github.com/emtll/automator-lnd/blob/main/scripts/autofee.py)
 This script automates the process of adjusting routing fees for Lightning Network channels based on various conditions like channel liquidity, routing activity, and tag classification. The main idea is to optimize channel fee settings for different types of channels, ensuring efficient liquidity management and maximizing profit.
