@@ -77,7 +77,11 @@ def adjust_inbound_fee(channel, new_fee, local_fee_rate, total_cost_ppm, peer_pu
         print_with_timestamp(f"Executing: {command}")
         os.system(command)
     else:
-        print_with_timestamp(f"No projected profit margin for channel {channel['alias']} ({peer_pubkey}), inbound fee not adjusted")
+        inbound_fee = 0
+        command = f"{BOS_PATH} fees --set-inbound-rate-discount {inbound_fee} --to {peer_pubkey}"
+        print_with_timestamp(f"No projected profit margin for channel {channel['alias']} ({peer_pubkey}), inbound fee droped to 0")
+        print_with_timestamp(f"{command}")
+        os.system(command)
 
 def adjust_new_channel_fee(channel):
     outbound_ratio = channel['outbound_liquidity']      # outbound_liquidity
@@ -87,8 +91,8 @@ def adjust_new_channel_fee(channel):
     last_incoming = channel['last_incoming_activity']   # last_incoming_activity
     last_rebalance = channel['last_rebalance']          # last_rebalance
 
-    if days_since_opening >= 2 and outbound_ratio == 0 and last_incoming is None and last_rebalance is None:
-        return int(local_fee_rate * 1.05)  # Fee Increase 5%
+    if days_since_opening >= 1 and outbound_ratio == 0 and last_incoming is None and last_rebalance is None:
+        return int(local_fee_rate * 1.10)  # Fee Increase 10%
     elif outbound_ratio == 100 and days_since_opening >= 3 and last_outgoing is None:
         return int(local_fee_rate * 0.95)  # Fee Decrease 5%
     elif outbound_ratio == 50 and days_since_opening >= 3 and last_outgoing is None:
@@ -111,12 +115,18 @@ def adjust_sink_fee(channel):
         return 2500 # Set Fee Rate to 2500ppm 
     elif outbound_ratio <= 10.0 and days_since_last_activity(last_rebalance) >= 2 and local_fee_rate < MAX_FEE_THRESHOLD:
         return int(local_fee_rate * 1.05)  # Fee Increase 5%
-    elif outbound_ratio <= 10.0 and days_since_last_activity(last_rebalance) < 2 and local_fee_rate < MAX_FEE_THRESHOLD:
-        return int(local_fee_rate * 1.03)  # Fee Increase 3%
+    elif outbound_ratio <= 10.0 and days_since_last_activity(last_rebalance) > 1 and local_fee_rate < MAX_FEE_THRESHOLD:
+        return int(local_fee_rate * 1.02)  # Fee Increase 2%
     elif outbound_ratio >= 10.0 and outbound_ratio < 30.0 and days_since_last_activity(last_rebalance) >= 3:
         return int(local_fee_rate * 1.02)  # Fee Increase 2%
-    elif outbound_ratio >= 30.0 and days_since_last_activity(last_outgoing) >= 3:
-        new_fee = int(local_fee_rate * 0.99)  # Fee Decrease 1%
+    elif outbound_ratio >= 10.0 and outbound_ratio < 30.0 and days_since_last_activity(last_outgoing) >= 1:
+        new_fee = int(local_fee_rate * 0.98)  # Fee Decrease 2%
+        if new_fee > total_cost_ppm:
+            return new_fee
+        else:
+            return local_fee_rate # Maintains the same fee
+    elif outbound_ratio >= 30.0 and days_since_last_activity(last_outgoing) >= 1:
+        new_fee = int(local_fee_rate * 0.98)  # Fee Decrease 2%
         if new_fee > total_cost_ppm:
             return new_fee # The new fee always must be greater than the total cost ppm
         else:
@@ -143,8 +153,14 @@ def adjust_router_fee(channel):
         return int(local_fee_rate * 1.02)  # Fee Increase 2%
     elif outbound_ratio >= 10.0 and outbound_ratio < 30.0 and days_since_last_activity(last_rebalance) >= 3:
         return int(local_fee_rate * 1.01)  # Fee Increase 1%
+    elif outbound_ratio >= 10.0 and outbound_ratio < 30.0 and days_since_last_activity(last_outgoing) >= 1:
+        new_fee = int(local_fee_rate * 0.98)  # Fee Decrease 2%
+        if new_fee > total_cost_ppm:
+            return new_fee # The new fee always must be greater than the total cost ppm
+        else:
+            return local_fee_rate # Maintains the same fee
     elif outbound_ratio >= 30.0 and days_since_last_activity(last_outgoing) >= 3:
-        new_fee = int(local_fee_rate * 0.99)  # Fee Decrease 1%
+        new_fee = int(local_fee_rate * 0.98)  # Fee Decrease 2%
         if new_fee > total_cost_ppm:
             return new_fee # The new fee always must be greater than the total cost ppm
         else:
