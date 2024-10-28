@@ -106,11 +106,12 @@ def adjust_sink_fee(channel):
     local_fee_rate = channel['local_fee_rate']          # local_fee_rate
     last_outgoing = channel['last_outgoing_activity']   # last_outgoing_activity
     last_rebalance = channel['last_rebalance']          # last_rebalance
+    rebal_rate = channel['rebal_rate']                  # rebal_rate
 
     if total_cost_ppm == 0 and days_since_last_activity(last_rebalance) <= 21:
         return 100  # Set Fee Rate to 100ppm 
     elif total_cost_ppm > 0 and total_cost_ppm < 100 and days_since_last_activity(last_rebalance) <= 21:
-        return int(total_cost_ppm * 2) # Set Fee Rate to 2x the total_cost_ppm
+        return int(rebal_rate * 2) # Set Fee Rate to 2x the rebal_rate
     elif days_since_last_activity(last_rebalance) > 21:
         return 2500 # Set Fee Rate to 2500ppm 
     elif outbound_ratio <= 10.0 and days_since_last_activity(last_rebalance) >= 2 and local_fee_rate < MAX_FEE_THRESHOLD:
@@ -121,18 +122,18 @@ def adjust_sink_fee(channel):
         return int(local_fee_rate * 1.02)  # Fee Increase 2%
     elif outbound_ratio >= 10.0 and outbound_ratio < 30.0 and days_since_last_activity(last_outgoing) >= 1:
         new_fee = int(local_fee_rate * 0.98)  # Fee Decrease 2%
-        if new_fee > total_cost_ppm:
+        if new_fee > rebal_rate:
             return new_fee
         else:
             return local_fee_rate # Maintains the same fee
     elif outbound_ratio >= 30.0 and days_since_last_activity(last_outgoing) >= 1:
         new_fee = int(local_fee_rate * 0.98)  # Fee Decrease 2%
-        if new_fee > total_cost_ppm:
+        if new_fee > rebal_rate:
             return new_fee # The new fee always must be greater than the total cost ppm
         else:
             return local_fee_rate # Maintains the same fee
     else:
-        return calculate_new_fee(total_cost_ppm)  # Cost PPM + 20%
+        return (rebal_rate / 0.9)  # Rebal Rate + 10%
         
 def adjust_router_fee(channel):
     outbound_ratio = channel['outbound_liquidity']      # outbound_liquidity
@@ -140,11 +141,12 @@ def adjust_router_fee(channel):
     local_fee_rate = channel['local_fee_rate']          # local_fee_rate
     last_outgoing = channel['last_outgoing_activity']   # last_outgoing_activity
     last_rebalance = channel['last_rebalance']          # last_rebalance
+    rebal_rate = channel['rebal_rate']                  # rebal_rate
 
     if total_cost_ppm == 0 and outbound_ratio > 10:
         return 100  # Set Fee Rate to 100ppm 
     elif total_cost_ppm > 0 and total_cost_ppm < 100:
-        return int(total_cost_ppm * 2) # Set Fee Rate to 2x the total_cost_ppm
+        return int(rebal_rate * 2) # Set Fee Rate to 2x the rebal_rate
     elif days_since_last_activity(last_rebalance) > 21 and outbound_ratio <= 10:
         return int(local_fee_rate * 1.5) # Set Fee Rate to 1.5x the local_fee_rate
     elif outbound_ratio <= 10.0 and days_since_last_activity(last_rebalance) >= 1 and local_fee_rate < MAX_FEE_THRESHOLD:
@@ -155,23 +157,23 @@ def adjust_router_fee(channel):
         return int(local_fee_rate * 1.01)  # Fee Increase 1%
     elif outbound_ratio >= 10.0 and outbound_ratio < 30.0 and days_since_last_activity(last_outgoing) >= 1:
         new_fee = int(local_fee_rate * 0.98)  # Fee Decrease 2%
-        if new_fee > total_cost_ppm:
+        if new_fee > rebal_rate:
             return new_fee # The new fee always must be greater than the total cost ppm
         else:
             return local_fee_rate # Maintains the same fee
     elif outbound_ratio >= 30.0 and days_since_last_activity(last_outgoing) >= 3:
         new_fee = int(local_fee_rate * 0.98)  # Fee Decrease 2%
-        if new_fee > total_cost_ppm:
+        if new_fee > rebal_rate:
             return new_fee # The new fee always must be greater than the total cost ppm
         else:
             return local_fee_rate # Maintains the same fee
     else:
-        return calculate_new_fee(total_cost_ppm)  # Cost PPM + 20%
+        return (rebal_rate / 0.9)  # Rebal Rate + 10%
 
 def adjust_source_fee(channel):
     total_routed_out = channel['total_routed_out']   # total_routed_out
     if total_routed_out > 0:
-        return 10  # Set Fee Rate to 10ppm 
+        return 10  # Set Fee Rate to 10ppm
     else:
         return 0  # Set Fee Rate to 0ppm
 
