@@ -49,6 +49,8 @@ ENABLE_REBALANCER = config.getboolean('Control', 'enable_rebalancer')
 ENABLE_CLOSE_CHANNEL = config.getboolean('Control', 'enable_close_channel')
 ENABLE_SWAP_OUT = config.getboolean('Control', 'enable_swap_out')
 
+db_lock = threading.Lock()
+
 def import_main_function(script_path):
     try:
         module_name = os.path.splitext(os.path.basename(script_path))[0]
@@ -61,9 +63,10 @@ def import_main_function(script_path):
 def run_script_independently(main_function, sleep_time):
     while True:
         try:
-            logging.info(f"Running {main_function.__name__}")
-            main_function()
-            logging.info(f"{main_function.__name__} executed successfully")
+            with db_lock:
+                logging.info(f"Running {main_function.__name__}")
+                main_function()
+                logging.info(f"{main_function.__name__} executed successfully")
         except Exception as e:
             logging.error(f"Error executing {main_function.__name__}: {e}")
         time.sleep(sleep_time)
