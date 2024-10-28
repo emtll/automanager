@@ -68,7 +68,7 @@ def run_script_independently(main_function, sleep_time):
             logging.error(f"Error executing {main_function.__name__}: {e}")
         time.sleep(sleep_time)
 
-def run_swap_out_once(swap_out_main):
+def run_swap_out(swap_out_main):
     try:
         logging.info(f"Running {swap_out_main.__name__}")
         swap_out_main()
@@ -117,7 +117,7 @@ def main():
         if ENABLE_SWAP_OUT:
             logging.info("Starting swap_out")
             swap_out_main = import_main_function(SWAP_OUT_SCRIPT)
-            thread6 = threading.Thread(target=run_swap_out_once, args=(swap_out_main,))
+            thread6 = threading.Thread(target=run_swap_out, args=(swap_out_main,))
             threads.append(thread6)
             thread6.start()
 
