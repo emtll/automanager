@@ -60,15 +60,15 @@ def fee_change_checker(chan_id):
     
     return result is not None
 
-def adjust_inbound_fee(channel, new_fee, local_fee_rate, total_cost_ppm, peer_pubkey):
+def adjust_inbound_fee(channel, new_fee, local_fee_rate, rebal_rate, peer_pubkey):
     current_fee = new_fee if new_fee != local_fee_rate else local_fee_rate
-    projected_margin = current_fee - total_cost_ppm
+    projected_margin = current_fee - rebal_rate
 
     if projected_margin > 0:
         if channel['tag'] == 'sink':
-            inbound_fee = int(projected_margin * 0.50)
-        elif channel['tag'] == 'router':
             inbound_fee = int(projected_margin * 0.25)
+        elif channel['tag'] == 'router':
+            inbound_fee = int(projected_margin * 0.10)
         else:
             inbound_fee = 0
 
@@ -197,7 +197,7 @@ def main():
         alias = channel_dict.get('alias', None)
         tag = channel_dict.get('tag', None)
         local_fee_rate = channel_dict.get('local_fee_rate', None)
-        total_cost_ppm = channel_dict.get('cost_ppm', 0)
+        rebal_rate = channel_dict.get('rebal_rate', 0)
 
         if chan_id is None or pubkey is None or alias is None or tag is None:
             print_with_timestamp(f"Missing required data for channel, skipping...")
@@ -215,10 +215,10 @@ def main():
             new_fee = adjust_new_channel_fee(channel_dict)
         elif tag == "sink":
             new_fee = adjust_sink_fee(channel_dict)
-            adjust_inbound_fee(channel_dict, new_fee, local_fee_rate, total_cost_ppm, pubkey)
+            adjust_inbound_fee(channel_dict, new_fee, local_fee_rate, rebal_rate, pubkey)
         elif tag == "router":
             new_fee = adjust_router_fee(channel_dict)
-            adjust_inbound_fee(channel_dict, new_fee, local_fee_rate, total_cost_ppm, pubkey)
+            adjust_inbound_fee(channel_dict, new_fee, local_fee_rate, rebal_rate, pubkey)
         elif tag == "source":
             new_fee = adjust_source_fee(channel_dict)
         else:
