@@ -602,10 +602,11 @@ def main():
             )
 
             upsert_channel_data(new_conn, data, table_name)
+            upsert_channel_data(new_conn, data, f"opened_channels_{PERIOD}d")
     
     conn.close()
     new_conn.close()
 
 if __name__ == "__main__":
     main()
-
+    
