@@ -93,7 +93,7 @@ def adjust_new_channel_fee(channel):
 
     if days_since_opening >= 1 and outbound_ratio == 0 and last_incoming is None and last_rebalance is None:
         return int(local_fee_rate * 1.10)  # Fee Increase 10%
-    elif outbound_ratio == 100 and days_since_opening >= 1 and last_outgoing is None:
+    elif outbound_ratio >= 99 and days_since_opening >= 1 and last_outgoing is None:
         return int(local_fee_rate * 0.95)  # Fee Decrease 5%
     elif outbound_ratio == 50 and days_since_opening >= 1 and last_outgoing is None:
         return int(local_fee_rate * 0.95)  # Fee Decrease 5%
