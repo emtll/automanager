@@ -115,7 +115,7 @@ pip install -r requirements.txt
 After installing the dependencies, you can now run the scripts or start the automation process:
 
 ```
-python automator.py
+python3 automator.py
 ```
 
 ## Running as a service
