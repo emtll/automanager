@@ -258,7 +258,16 @@ def execute_payment_quote(payment_quote_id):
     try:
         response = requests.patch(f'https://api.strike.me/v1/payment-quotes/{payment_quote_id}/execute', headers=headers)
         response.raise_for_status()
-        logging.info(f"Payment executed successfully for quote {payment_quote_id}.")
+        execute_data = response.json()
+        
+        payment_id = execute_data.get('paymentId', payment_quote_id)
+        logging.info(f"Payment executed successfully for quote {payment_quote_id}. Payment ID: {payment_id}")
+        
+        if payment_id and payment_id != payment_quote_id:
+            update_quote_state(payment_id, 'PENDING')
+        else:
+            update_quote_state(payment_quote_id, 'PENDING')
+
         return True
     except requests.exceptions.HTTPError as e:
         logging.error(f"Error executing payment via Strike: {e}")
@@ -316,7 +325,7 @@ def withdraw_to_btc_address(btc_address, amount):
 
         if payment_id:
             logging.info(f"Payment executed successfully. Payment ID: {payment_id}")
-            update_quote_state(payment_quote_id, 'PENDING')
+            update_quote_state(payment_id, 'PENDING')
             logging.info(f"State updated in the database to PENDING with paymentId {payment_id}.")
         else:
             logging.error(f"Could not retrieve paymentId for quote {payment_quote_id}.")
@@ -413,9 +422,9 @@ def main():
 
         current_onchain_balance = get_onchain_balance()
         pending_onchain_withdrawals = get_pending_quote_amounts()
-        total_onchain_balance = current_onchain_balance + pending_onchain_withdrawals
-        amount_needed_to_target = ONCHAIN_TARGET - total_onchain_balance
         strike_balance = get_strike_balance()
+        total_onchain_balance = current_onchain_balance + pending_onchain_withdrawals + strike_balance
+        amount_needed_to_target = ONCHAIN_TARGET - total_onchain_balance
 
         logging.info(f"Updated onchain balance: {current_onchain_balance} satoshis.")
         logging.info(f"Updated pending onchain withdrawals: {pending_onchain_withdrawals} satoshis.")
