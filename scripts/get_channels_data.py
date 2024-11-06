@@ -370,11 +370,11 @@ def tag(conn, chan_id, total_routed_in, total_routed_out, days_open):
 
     if total_routed_in == 0 and total_routed_out == 0 and days_open < 7:
         return 'new_channel'
-    elif total_routed_in > (total_routed_out * ROUTER_FACTOR):
+    elif total_routed_in > (total_routed_out * ROUTER_FACTOR) and days_open > 7:
         return 'source'
-    elif total_routed_out > (total_routed_in * ROUTER_FACTOR):
+    elif total_routed_out > (total_routed_in * ROUTER_FACTOR) and days_open > 7:
         return 'sink'
-    else:
+    elif days_open > 7:
         return 'router'
 
 def get_active_channels(conn):
@@ -412,7 +412,7 @@ def get_opening_date(funding_txid):
                 if block_time:
                     return datetime.fromtimestamp(block_time, timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
         except Exception as e:
-            print(f"Erro ao buscar a transação {funding_txid}: {str(e)}")
+            print(f"Error while fetching transaction {funding_txid}: {str(e)}")
     return None
 
 def calculate_days_open(opening_date):

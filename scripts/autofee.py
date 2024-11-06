@@ -20,6 +20,7 @@ EXCLUSION_FILE_PATH = expand_path(config['Paths']['excluded_peers_path'])
 SLEEP_AUTOFEE = int(config['Automation']['sleep_autofee'])
 MAX_FEE_THRESHOLD = int(config['Autofee']['max_fee_threshold'])
 PERIOD = config['Autofee']['table_period']
+conn = sqlite3.connect(DB_PATH)
 
 def print_with_timestamp(message):
     print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {message}")
@@ -83,6 +84,20 @@ def adjust_inbound_fee(channel, new_fee, local_fee_rate, rebal_rate, peer_pubkey
         print_with_timestamp(f"{command}")
         os.system(command)
 
+def get_routed_amount_7_days(chan_id):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT SUM(total_routed_in), SUM(total_routed_out)
+        FROM opened_channels_7d
+        WHERE chan_id = ?
+    """, (chan_id,))
+    
+    result = cursor.fetchone()
+    total_routed_in = result[0] if result[0] is not None else 0
+    total_routed_out = result[1] if result[1] is not None else 0
+    return total_routed_in + total_routed_out
+
 def adjust_new_channel_fee(channel):
     outbound_ratio = channel['outbound_liquidity']      # outbound_liquidity
     days_since_opening = channel['days_open']           # days_open
@@ -112,8 +127,8 @@ def adjust_sink_fee(channel):
         return 100  # Set Fee Rate to 100ppm 
     elif rebal_rate > 0 and rebal_rate < 100 and days_since_last_activity(last_rebalance) <= 21:
         return int(rebal_rate * 2) # Set Fee Rate to 2x the rebal_rate
-    elif days_since_last_activity(last_rebalance) > 21:
-        return 2500 # Set Fee Rate to 2500ppm 
+    elif last_rebalance is not None and days_since_last_activity(last_rebalance) > 21:
+        return 2500 # Set Fee Rate to 2500ppm
     elif outbound_ratio <= 10.0 and days_since_last_activity(last_rebalance) >= 2 and local_fee_rate < MAX_FEE_THRESHOLD:
         return int(local_fee_rate * 1.05)  # Fee Increase 5%
     elif outbound_ratio <= 10.0 and days_since_last_activity(last_rebalance) > 1 and local_fee_rate < MAX_FEE_THRESHOLD:
@@ -133,16 +148,20 @@ def adjust_sink_fee(channel):
         else:
             return local_fee_rate # Maintains the same fee
     else:
-        return (rebal_rate / 0.9)  # Rebal Rate + 10%
+        return 500 if rebal_rate == 0 else int(rebal_rate / 0.9)  # Rebal Rate + 10%
         
 def adjust_router_fee(channel):
     outbound_ratio = channel['outbound_liquidity']      # outbound_liquidity
     total_cost_ppm = channel['cost_ppm']                # cost_ppm
     local_fee_rate = channel['local_fee_rate']          # local_fee_rate
     last_outgoing = channel['last_outgoing_activity']   # last_outgoing_activity
+    last_incoming = channel['last_incoming_activity']   # last_incoming_activity
     last_rebalance = channel['last_rebalance']          # last_rebalance
     rebal_rate = channel['rebal_rate']                  # rebal_rate
+    channel_capacity = channel['capacity']              # total capacity of the channel
+    routed_amount = get_routed_amount_7_days(channel['chan_id']) 
 
+    # If there was intense movement (2x channel capacity) and fee rate is below 100ppm, set it to 100
     if total_cost_ppm == 0 and outbound_ratio > 10:
         return 100  # Set Fee Rate to 100ppm 
     elif total_cost_ppm > 0 and total_cost_ppm < 100:
@@ -158,17 +177,19 @@ def adjust_router_fee(channel):
     elif outbound_ratio >= 10.0 and outbound_ratio < 30.0 and days_since_last_activity(last_outgoing) >= 1:
         new_fee = int(local_fee_rate * 0.98)  # Fee Decrease 2%
         if new_fee > rebal_rate:
-            return new_fee # The new fee always must be greater than the total cost ppm
+            return new_fee  # The new fee always must be greater than the rebal_rate
         else:
-            return local_fee_rate # Maintains the same fee
+            return local_fee_rate  # Maintains the same fee
     elif outbound_ratio >= 30.0 and days_since_last_activity(last_outgoing) >= 1:
         new_fee = int(local_fee_rate * 0.98)  # Fee Decrease 2%
         if new_fee > total_cost_ppm:
-            return new_fee # The new fee always must be greater than the total cost ppm
+            return new_fee  # The new fee always must be greater than the total cost ppm
         else:
-            return local_fee_rate # Maintains the same fee
+            return local_fee_rate  # Maintains the same fee
+    elif routed_amount >= 2 * channel_capacity and local_fee_rate < 100:
+        return 100  # Set Fee Rate to 100ppm
     else:
-        return (total_cost_ppm / 0.9)  # Rebal Rate + 10%
+        return 100 if total_cost_ppm == 0 else int(total_cost_ppm / 0.9) # Ensure minimum of 100ppm
 
 def adjust_source_fee(channel):
     total_routed_out = channel['total_routed_out']   # total_routed_out
@@ -180,12 +201,17 @@ def adjust_source_fee(channel):
 def main():
     with open(EXCLUSION_FILE_PATH, 'r') as exclusion_file:
         exclusion_data = json.load(exclusion_file)
-        exclusion_list = exclusion_data['EXCLUSION_LIST']
+        exclusion_list = exclusion_data.get('EXCLUSION_LIST', [])
 
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     table_name = f'opened_channels_{PERIOD}d'
-    cursor.execute(f"SELECT * FROM {table_name}")
+    
+    try:
+        cursor.execute(f"SELECT * FROM {table_name}")
+    except sqlite3.Error as e:
+        print_with_timestamp(f"Database error: {e}")
+        return
     channels_data = cursor.fetchall()
     column_names = [description[0] for description in cursor.description]
 
@@ -225,7 +251,7 @@ def main():
             print_with_timestamp(f"Unknown tag for {alias}, skipping...")
             continue
 
-        if new_fee != local_fee_rate:
+        if new_fee != local_fee_rate and new_fee > (local_fee_rate*1.005):
             print_with_timestamp(f"Adjusting fee for channel {alias} ({pubkey}) to {new_fee}")
             issue_bos_command(pubkey, new_fee)
 
