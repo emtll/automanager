@@ -513,19 +513,22 @@ def main():
     
     conn = connect_db()
     new_conn = connect_new_db()
-    create_personalized_table(new_conn, PERIOD)
+    if PERIOD not in [1, 7, 30]:
+        create_personalized_table(new_conn, PERIOD)
     create_tables(new_conn)
     
     active_channels = get_active_channels(conn)
     active_chan_ids = [channel[0] for channel in active_channels]
 
     periods = {
-        f'opened_channels_{PERIOD}d': start_date_period,
+        f'opened_channels_{PERIOD}d': start_date_period if PERIOD not in [1, 7, 30] else None,
         'opened_channels_1d': start_date_1d,
         'opened_channels_7d': start_date_7d,
         'opened_channels_30d': start_date_30d,
         'opened_channels_lifetime': start_date_lifetime
     }
+
+    periods = {k: v for k, v in periods.items() if v is not None}
     
     for table_name in periods.keys():
         remove_closed_channels(new_conn, active_chan_ids, table_name)
@@ -602,11 +605,11 @@ def main():
             )
 
             upsert_channel_data(new_conn, data, table_name)
-            upsert_channel_data(new_conn, data, f"opened_channels_{PERIOD}d")
-    
+            if PERIOD not in [1, 7, 30]:
+                upsert_channel_data(new_conn, data, f"opened_channels_{PERIOD}d")
+
     conn.close()
     new_conn.close()
 
 if __name__ == "__main__":
     main()
-    
