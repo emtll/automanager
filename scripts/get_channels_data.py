@@ -597,15 +597,15 @@ def main():
 
             data = (
                 chan_id, pubkey, alias, opening_date, tag_value, capacity, outbound_liquidity, inbound_liquidity,
-                days_open, total_revenue, revenue_ppm, total_cost, ppm, rebal_rate, total_rebalanced_in, total_routed_out, total_routed_in, 
-                assisted_revenue, assisted_revenue_ppm, profit, profit_ppm, profit_margin, sats_per_day_profit, 
+                days_open, total_revenue, revenue_ppm, total_cost, ppm, rebal_rate, total_rebalanced_in, total_routed_out, 
+                total_routed_in, assisted_revenue, assisted_revenue_ppm, profit, profit_ppm, profit_margin, sats_per_day_profit, 
                 sats_per_day_assisted, apy, iapy, local_fee_rate, local_base_fee, remote_fee_rate, remote_base_fee, 
-                local_inbound_fee_rate, local_inbound_base_fee,
-                last_outgoing_activity, last_incoming_activity, last_rebalance
+                local_inbound_fee_rate, local_inbound_base_fee, last_outgoing_activity, last_incoming_activity, last_rebalance
             )
 
             upsert_channel_data(new_conn, data, table_name)
-            if PERIOD not in [1, 7, 30]:
+            
+            if PERIOD not in [1, 7, 30] and table_name != f"opened_channels_{PERIOD}d":
                 upsert_channel_data(new_conn, data, f"opened_channels_{PERIOD}d")
 
     conn.close()
