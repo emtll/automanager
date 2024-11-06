@@ -370,15 +370,16 @@ def tag(conn, chan_id, total_routed_in, total_routed_out, days_open):
     if days_open is None:
         days_open = lifetime_days_open or 0
 
-    if total_routed_in == 0 and total_routed_out == 0 and days_open < 7:
-        return 'new_channel'
-    elif total_routed_in > 1 or total_routed_out > 1 and days_open < 7:
-        return 'new_channel'
-    elif total_routed_in > (total_routed_out * ROUTER_FACTOR) and days_open > 7:
+    if days_open < 7:
+        if total_routed_in == 0 and total_routed_out == 0:
+            return 'new_channel'
+        elif (total_routed_in < 500000 ) or (total_routed_out < 500000):
+            return 'new_channel'
+    if total_routed_in > (total_routed_out * ROUTER_FACTOR) and days_open > 7:
         return 'source'
     elif total_routed_out > (total_routed_in * ROUTER_FACTOR) and days_open > 7:
         return 'sink'
-    elif days_open > 7:
+    else:
         return 'router'
 
 def get_active_channels(conn):
