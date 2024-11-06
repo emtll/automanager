@@ -363,12 +363,16 @@ def get_lifetime_data(conn, chan_id):
 def tag(conn, chan_id, total_routed_in, total_routed_out, days_open):
     lifetime_routed_in, lifetime_routed_out, lifetime_days_open = get_lifetime_data(conn, chan_id)
 
-    if lifetime_routed_in is not None and lifetime_routed_out is not None:
-        total_routed_in = lifetime_routed_in
-        total_routed_out = lifetime_routed_out
-        days_open = lifetime_days_open
+    if total_routed_in is None:
+        total_routed_in = lifetime_routed_in or 0
+    if total_routed_out is None:
+        total_routed_out = lifetime_routed_out or 0
+    if days_open is None:
+        days_open = lifetime_days_open or 0
 
     if total_routed_in == 0 and total_routed_out == 0 and days_open < 7:
+        return 'new_channel'
+    elif total_routed_in > 1 or total_routed_out > 1 and days_open < 7:
         return 'new_channel'
     elif total_routed_in > (total_routed_out * ROUTER_FACTOR) and days_open > 7:
         return 'source'
@@ -513,8 +517,10 @@ def main():
     
     conn = connect_db()
     new_conn = connect_new_db()
+
     if PERIOD not in [1, 7, 30]:
         create_personalized_table(new_conn, PERIOD)
+        
     create_tables(new_conn)
     
     active_channels = get_active_channels(conn)
@@ -534,17 +540,14 @@ def main():
         remove_closed_channels(new_conn, active_chan_ids, table_name)
     
     for table_name, start_date in periods.items():
-        rebalances = get_rebalances(conn, start_date)
-        routed_in = get_routed_in(conn, start_date)
-        rebalanced_in = get_rebalanced_in(conn, start_date)
+        print(f"Processing table: {table_name} with start date: {start_date}")
+        rebalances_dict = {row[0]: row[1] for row in get_rebalances(conn, start_date)}
+        routed_in_dict = {row[0]: row[1] for row in get_routed_in(conn, start_date)}
+        rebalanced_in_dict = {row[0]: row[1] for row in get_rebalanced_in(conn, start_date)}
         routed_out_revenue = get_routed_out_and_revenue(conn, start_date)
-        assisted_revenue_dict = {row[0]: row[1] for row in get_assisted_revenue(conn, start_date)}
-
-        rebalances_dict = {row[0]: row[1] for row in rebalances}
-        routed_in_dict = {row[0]: row[1] for row in routed_in}
-        rebalanced_in_dict = {row[0]: row[1] for row in rebalanced_in}
         routed_out_dict = {row[0]: row[1] for row in routed_out_revenue}
         revenue_dict = {row[0]: row[2] for row in routed_out_revenue}
+        assisted_revenue_dict = {row[0]: row[1] for row in get_assisted_revenue(conn, start_date)}
 
         for channel in active_channels:
             chan_id = channel[0]
@@ -604,7 +607,6 @@ def main():
             )
 
             upsert_channel_data(new_conn, data, table_name)
-            
             if PERIOD not in [1, 7, 30] and table_name != f"opened_channels_{PERIOD}d":
                 upsert_channel_data(new_conn, data, f"opened_channels_{PERIOD}d")
 
