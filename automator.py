@@ -7,15 +7,25 @@ import threading
 import os
 import sys
 
+from logging.handlers import RotatingFileHandler
+
 script_dir = os.path.dirname(os.path.abspath(__file__))
 logs_dir = os.path.join(script_dir, 'logs')
 os.makedirs(logs_dir, exist_ok=True)
 
-logging.basicConfig(
-    filename=os.path.join(logs_dir, "automator.log"),
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s"
+log_file_path = os.path.join(logs_dir, "automator.log")
+max_log_size = 15 * 1024 * 1024
+backup_count = 3
+
+handler = RotatingFileHandler(
+    log_file_path, maxBytes=max_log_size, backupCount=backup_count
 )
+handler.setLevel(logging.INFO)
+formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+handler.setFormatter(formatter)
+
+logging.basicConfig(level=logging.INFO, handlers=[handler])
+logging.info("Logging configured with rotation and ready to use.")
 
 config_path = os.path.join(script_dir, 'automator.conf')
 config = configparser.ConfigParser()
