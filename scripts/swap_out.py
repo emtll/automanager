@@ -316,7 +316,7 @@ def withdraw_to_btc_address(btc_address, amount):
 
         insert_quote(payment_quote_id, amount_str, currency_str, 'PENDING')
 
-        execute_payment_url = f'https://api.strike.me/v1/payment-quotes/{payment_quote_id}/execute'
+        execute_payment_url = f'https://api.strike.me/v1/payment-quotes/{payment_id}/execute'
         execute_response = requests.patch(execute_payment_url, headers=headers)
         execute_response.raise_for_status()
 
@@ -325,15 +325,16 @@ def withdraw_to_btc_address(btc_address, amount):
 
         if payment_id:
             logging.info(f"Payment executed successfully. Payment ID: {payment_id}")
-            update_quote_state(payment_quote_id, 'PENDING')
+            update_quote_state(payment_id, 'PENDING')
             logging.info(f"State updated in the database to PENDING with paymentId {payment_id}.")
         else:
-            logging.error(f"Could not retrieve paymentId for quote {payment_quote_id}.")
+            logging.error(f"Could not retrieve paymentId for quote {payment_id}.")
 
     except requests.exceptions.HTTPError as http_err:
         logging.error(f"HTTP error during withdrawal: {http_err}")
     except Exception as err:
         logging.error(f"Error during withdrawal: {err}")
+    return payment_id
 
 def main():
     create_table_if_not_exists()
