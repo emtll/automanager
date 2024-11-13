@@ -179,27 +179,38 @@ def adjust_router_fee(channel):
 
     # Apply fee rate adjustments based on channel conditions
     if total_cost_ppm == 0 and outbound_ratio > 10:
-        return 100  # Set Fee Rate to 100ppm
+        return 50  # Set Fee Rate to 50ppm
+    
     elif routed_amount >= 2 * channel_capacity and local_fee_rate < 100:
         return 100  # Set Fee Rate to 100ppm for high routing activity
+    
     elif 0 < total_cost_ppm < 100:
         return int(total_cost_ppm * 2)  # Double the fee based on cost ppm if low
-    elif days_since_last_activity(last_rebalance) > 21 and outbound_ratio <= 10:
+    
+    elif days_since_last_activity(last_rebalance) > 1 and outbound_ratio <= 10:
         return int(local_fee_rate * 1.5)  # Increase fee rate by 50% if no recent rebalance and low liquidity
+    
     elif outbound_ratio <= 10.0:
         if days_since_last_activity(last_rebalance) >= 1 and local_fee_rate < MAX_FEE_THRESHOLD:
             return int(local_fee_rate * 1.03)  # Increase fee rate by 3%
         elif days_since_last_activity(last_rebalance) < 1 and local_fee_rate < MAX_FEE_THRESHOLD:
             return int(local_fee_rate * 1.02)  # Increase fee rate by 2%
+        
     elif 10.0 < outbound_ratio < 30.0:
-        if days_since_last_activity(last_rebalance) >= 3:
-            return int(local_fee_rate * 1.01)  # Increase fee rate by 1%
+        if days_since_last_activity(last_rebalance) >= 1:
+            return int(local_fee_rate + 25)  # Increase fee rate by 25ppm
         elif days_since_last_activity(last_outgoing) >= 1:
             new_fee = int(local_fee_rate * 0.98)  # Decrease fee by 2%
             return max(new_fee, rebal_rate)  # Ensure fee is not below rebal rate
+    
+    elif outbound_ratio >= 30.0 and days_since_last_activity(last_outgoing) >= 3:
+        new_fee = int(local_fee_rate - 25)  # Decrease fee by 25%
+        return max(new_fee, total_cost_ppm)  # Ensure fee is not below cost ppm
+        
     elif outbound_ratio >= 30.0 and days_since_last_activity(last_outgoing) >= 1:
         new_fee = int(local_fee_rate * 0.98)  # Decrease fee by 2%
         return max(new_fee, total_cost_ppm)  # Ensure fee is not below cost ppm
+    
     else:
         return 100 if total_cost_ppm == 0 else int(total_cost_ppm / 0.9)  # Minimum 100ppm or a 10% increase if cost exists
 
