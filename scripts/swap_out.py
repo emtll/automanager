@@ -316,7 +316,7 @@ def withdraw_to_btc_address(btc_address, amount):
 
         insert_quote(payment_quote_id, amount_str, currency_str, 'PENDING')
 
-        execute_payment_url = f'https://api.strike.me/v1/payment-quotes/{payment_id}/execute'
+        execute_payment_url = f'https://api.strike.me/v1/payment-quotes/{payment_quote_id}/execute'
         execute_response = requests.patch(execute_payment_url, headers=headers)
         execute_response.raise_for_status()
 
