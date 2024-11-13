@@ -424,7 +424,7 @@ def main():
         current_onchain_balance = get_onchain_balance()
         pending_onchain_withdrawals = get_pending_quote_amounts()
         strike_balance = get_strike_balance()
-        total_onchain_balance = current_onchain_balance + pending_onchain_withdrawals + strike_balance
+        total_onchain_balance = current_onchain_balance + pending_onchain_withdrawals
         amount_needed_to_target = ONCHAIN_TARGET - total_onchain_balance
 
         logging.info(f"Updated onchain balance: {current_onchain_balance} satoshis.")
