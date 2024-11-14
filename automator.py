@@ -70,11 +70,11 @@ def import_main_function(script_path):
         logging.error(f"Error importing 'main' function from {script_path}: {e}")
         raise
 
-def run_script_independently(main_function, sleep_time):
+def run_script_independently(main_function, sleep_time, script):
     while True:
         try:
             with db_lock:
-                logging.info(f"Running {main_function.__name__}")
+                logging.info(f"Running {main_function.__name__} from {script}")
                 main_function()
                 logging.info(f"{main_function.__name__} executed successfully")
         except Exception as e:
@@ -95,35 +95,35 @@ def main():
     try:
         logging.info("Starting get_channels")
         get_channels_main = import_main_function(GET_CHANNELS_SCRIPT)
-        thread1 = threading.Thread(target=run_script_independently, args=(get_channels_main, SLEEP_GET_CHANNELS))
+        thread1 = threading.Thread(target=run_script_independently, args=(get_channels_main, SLEEP_GET_CHANNELS, GET_CHANNELS_SCRIPT))
         threads.append(thread1)
         thread1.start()
 
         if ENABLE_AUTOFEE:
             logging.info("Starting autofee")
             autofee_main = import_main_function(AUTO_FEE_SCRIPT)
-            thread2 = threading.Thread(target=run_script_independently, args=(autofee_main, SLEEP_AUTOFEE))
+            thread2 = threading.Thread(target=run_script_independently, args=(autofee_main, SLEEP_AUTOFEE, AUTO_FEE_SCRIPT))
             threads.append(thread2)
             thread2.start()
 
         if ENABLE_GET_CLOSED_CHANNELS:
             logging.info("Starting get_closed_channels")
             get_closed_channels_main = import_main_function(GET_CLOSED_CHANNELS_SCRIPT)
-            thread3 = threading.Thread(target=run_script_independently, args=(get_closed_channels_main, SLEEP_GET_CLOSED_CHANNELS))
+            thread3 = threading.Thread(target=run_script_independently, args=(get_closed_channels_main, SLEEP_GET_CLOSED_CHANNELS, GET_CLOSED_CHANNELS_SCRIPT))
             threads.append(thread3)
             thread3.start()
 
         if ENABLE_REBALANCER:
             logging.info("Starting rebalancer")
             rebalancer_main = import_main_function(REBALANCER_SCRIPT)
-            thread4 = threading.Thread(target=run_script_independently, args=(rebalancer_main, SLEEP_REBALANCER))
+            thread4 = threading.Thread(target=run_script_independently, args=(rebalancer_main, SLEEP_REBALANCER, REBALANCER_SCRIPT))
             threads.append(thread4)
             thread4.start()
 
         if ENABLE_CLOSE_CHANNEL:
             logging.info("Starting close_channel")
             close_channel_main = import_main_function(CLOSE_CHANNEL_SCRIPT)
-            thread5 = threading.Thread(target=run_script_independently, args=(close_channel_main, SLEEP_CLOSECHANNEL))
+            thread5 = threading.Thread(target=run_script_independently, args=(close_channel_main, SLEEP_CLOSECHANNEL, CLOSE_CHANNEL_SCRIPT))
             threads.append(thread5)
             thread5.start()
 
