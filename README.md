@@ -22,6 +22,7 @@ Automation for Lightning nodes of LND implementation
 - [Motivation](#motivation)
 - [Requirements](#requirements)
 - [Installation](#installation)
+- [Update](#update)
 - [Usage](#usage)
 - [General Configuration](#general-configuration)
 - [Scripts Explanation](#scripts-explanation)
