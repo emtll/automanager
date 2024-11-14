@@ -121,6 +121,10 @@ def adjust_new_channel_fee(channel):
     if days_since_opening >= 1 and outbound_ratio == 0 and last_incoming is None and last_rebalance is None:
         logging.info(f"Increasing fee by 10% for new channel {channel['alias']} due to no inbound or rebalance activity")
         return int(local_fee_rate * 1.10)  # Fee Increase 10%
+    if days_since_opening >=1 and 45 < outbound_ratio < 55:
+        if last_outgoing is None:
+            logging.info(f"Decreasing fee by 5% for new channel {channel['alias']} due to no outgoing activity")
+            return int(local_fee_rate * 0.95)  # Fee Decrease 5%
     if outbound_ratio >= 99 and days_since_opening >= 1 and last_outgoing is None:
         logging.info(f"Decreasing fee by 5% for new channel {channel['alias']} due to high outbound liquidity and inactivity")
         return int(local_fee_rate * 0.95)  # Fee Decrease 5%
