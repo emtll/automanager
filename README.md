@@ -174,6 +174,18 @@ To check the status of the service and ensure it's running correctly:
 sudo systemctl status automator-lnd
 ```
 
+## Update
+To update Automator LND to the latest version, follow these steps:
+
+1. Pull the Latest Repository Version
+If you already have the repository cloned, navigate to the project directory and pull the latest changes:
+
+```bash
+cd automator-lnd
+git fetch --tags
+git checkout $(git describe --tags `git rev-list --tags --max-count=1`)
+```
+
 ## Usage
 
 ## General Configuration
