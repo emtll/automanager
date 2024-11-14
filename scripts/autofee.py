@@ -308,10 +308,12 @@ def main():
             continue
 
         if new_fee is not None and local_fee_rate is not None:
-            if new_fee != local_fee_rate and abs(new_fee - local_fee_rate) > (local_fee_rate * 0.005):
+            variation = 0.005
+            percentage = variation
+            if new_fee != local_fee_rate and abs(new_fee - local_fee_rate) > (local_fee_rate * variation):
                 issue_bos_command(pubkey, new_fee)
             else:
-                logging.info(f"Channel {alias} will not have a fee change because fee variation is below 0.5%\n")
+                logging.info(f"Channel {alias} will not have a fee change because fee variation is below {percentage * 100}%\n")
         else:
             logging.warning(f"Skipping fee update for {alias} due to missing fee rate data")
 
