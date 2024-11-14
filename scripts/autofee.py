@@ -274,7 +274,7 @@ def main():
             print_with_timestamp(f"Unknown tag for {alias}, skipping...")
             continue
 
-        if new_fee != local_fee_rate and new_fee > (local_fee_rate*1.005):
+        if new_fee != local_fee_rate and abs(new_fee - local_fee_rate) > (local_fee_rate * 0.05):
             print_with_timestamp(f"Adjusting fee for channel {alias} ({pubkey}) to {new_fee}")
             issue_bos_command(pubkey, new_fee)
 
