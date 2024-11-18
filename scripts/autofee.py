@@ -4,6 +4,7 @@ import configparser
 import sqlite3
 import logging
 from datetime import datetime, timedelta
+from telebot import TeleBot
 
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 
@@ -23,6 +24,11 @@ EXCLUSION_FILE_PATH = expand_path(config['Paths']['excluded_peers_path'])
 SLEEP_AUTOFEE = int(config['Automation']['sleep_autofee'])
 MAX_FEE_THRESHOLD = int(config['Autofee']['max_fee_threshold'])
 PERIOD = config['Autofee']['table_period']
+BOT_TOKEN = config['Telegram']['bot_token']
+CHAT_ID = config['Telegram']['chat_id']
+TELEGRAM_ENABLED = bool(BOT_TOKEN and CHAT_ID)
+
+bot = TeleBot(BOT_TOKEN) if TELEGRAM_ENABLED else None
 conn = sqlite3.connect(DB_PATH)
 
 def print_with_timestamp(message):
@@ -33,6 +39,17 @@ def issue_bos_command(peer_pubkey, update_fee):
     print_with_timestamp(f"Executing: {command}")
     os.system(command)
 
+def send_telegram_message(message):
+    if not TELEGRAM_ENABLED:
+        logging.info("Telegram bot is disabled. Skipping message.")
+        return
+    
+    try:
+        bot.send_message(CHAT_ID, message)
+        logging.info(f"Telegram notification sent to chat {CHAT_ID}: {message}")
+    except Exception as e:
+        logging.error(f"Failed to send Telegram message to chat {CHAT_ID}: {e}")
+
 def days_since_last_activity(last_activity):
     if last_activity is None or last_activity == '':
         return float('inf')
@@ -40,9 +57,7 @@ def days_since_last_activity(last_activity):
         last_activity_date = datetime.fromtimestamp(last_activity)
     else:
         last_activity_date = datetime.strptime(last_activity, '%Y-%m-%d %H:%M:%S')
-    
-    time_difference = (datetime.now() - last_activity_date).total_seconds()
-    return time_difference / 86400
+    return (datetime.now() - last_activity_date).days
 
 def hours_since_last_activity(last_activity):
     if last_activity is None or last_activity == '':
@@ -313,6 +328,10 @@ def main():
             variation = 0.005
             percentage = variation
             if new_fee != local_fee_rate and abs(new_fee - local_fee_rate) > (local_fee_rate * variation):
+                message = (f"🔔 Fee change detected for channel {alias}:\n"
+                           f"\nPrevious fee: {local_fee_rate} ppm\n"
+                           f"\nNew fee: {new_fee} ppm\n")
+                send_telegram_message(message)
                 issue_bos_command(pubkey, new_fee)
             else:
                 logging.info(f"Channel {alias} will not have a fee change because fee variation is below {percentage * 100}%\n")
