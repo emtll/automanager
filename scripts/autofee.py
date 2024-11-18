@@ -328,9 +328,7 @@ def main():
             variation = 0.005
             percentage = variation
             if new_fee != local_fee_rate and abs(new_fee - local_fee_rate) > (local_fee_rate * variation):
-                message = (f"🔔 Fee change detected for channel {alias}:\n"
-                           f"\nPrevious fee: {local_fee_rate} ppm\n"
-                           f"\nNew fee: {new_fee} ppm\n")
+                message = (f"🔔 Changing fee for channel {alias}: from {local_fee_rate} ppm to {new_fee} ppm\n")
                 send_telegram_message(message)
                 issue_bos_command(pubkey, new_fee)
             else:
