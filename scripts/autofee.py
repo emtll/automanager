@@ -40,7 +40,9 @@ def days_since_last_activity(last_activity):
         last_activity_date = datetime.fromtimestamp(last_activity)
     else:
         last_activity_date = datetime.strptime(last_activity, '%Y-%m-%d %H:%M:%S')
-    return (datetime.now() - last_activity_date).days
+    
+    time_difference = (datetime.now() - last_activity_date).total_seconds()
+    return time_difference / 86400
 
 def hours_since_last_activity(last_activity):
     if last_activity is None or last_activity == '':
