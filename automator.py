@@ -48,12 +48,14 @@ SLEEP_CLOSECHANNEL = int(config.get('Automation', 'sleep_closechannel'))
 
 GET_CHANNELS_SCRIPT = get_absolute_path(config.get('Paths', 'get_channels_script'))
 AUTO_FEE_SCRIPT = get_absolute_path(config.get('Paths', 'autofee_script'))
+AUTO_FEE_V2_SCRIPT = get_absolute_path(config.get('Paths', 'autofee_script_v2'))
 GET_CLOSED_CHANNELS_SCRIPT = get_absolute_path(config.get('Paths', 'get_closed_channels_script'))
 REBALANCER_SCRIPT = get_absolute_path(config.get('Paths', 'rebalancer_script'))
 CLOSE_CHANNEL_SCRIPT = get_absolute_path(config.get('Paths', 'close_channel_script'))
 SWAP_OUT_SCRIPT = get_absolute_path(config.get('Paths', 'swap_out_script'))
 
 ENABLE_AUTOFEE = config.getboolean('Control', 'enable_autofee')
+ENABLE_AUTOFEE_V2 = config.getboolean('Control', 'enable_autofee_v2')
 ENABLE_GET_CLOSED_CHANNELS = config.getboolean('Control', 'enable_get_closed_channels')
 ENABLE_REBALANCER = config.getboolean('Control', 'enable_rebalancer')
 ENABLE_CLOSE_CHANNEL = config.getboolean('Control', 'enable_close_channel')
@@ -102,6 +104,13 @@ def main():
         if ENABLE_AUTOFEE:
             logging.info("Starting autofee")
             autofee_main = import_main_function(AUTO_FEE_SCRIPT)
+            thread2 = threading.Thread(target=run_script_independently, args=(autofee_main, SLEEP_AUTOFEE, AUTO_FEE_SCRIPT))
+            threads.append(thread2)
+            thread2.start()
+        
+        if ENABLE_AUTOFEE_V2:
+            logging.info("Starting autofee")
+            autofee_main = import_main_function(AUTO_FEE_V2_SCRIPT)
             thread2 = threading.Thread(target=run_script_independently, args=(autofee_main, SLEEP_AUTOFEE, AUTO_FEE_SCRIPT))
             threads.append(thread2)
             thread2.start()
