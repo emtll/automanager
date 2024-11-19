@@ -46,6 +46,7 @@ SLEEP_GET_CLOSED_CHANNELS = int(config.get('Automation', 'sleep_get_closed_chann
 SLEEP_REBALANCER = int(config.get('Automation', 'sleep_rebalancer'))
 SLEEP_CLOSECHANNEL = int(config.get('Automation', 'sleep_closechannel'))
 SLEEP_MAGMAFLOW = int(config.get('Automation', 'sleep_magmaflow'))
+SLEEP_HTLC_SCAN = int(config.get('Automation', 'sleep_htlc_scan'))
 
 GET_CHANNELS_SCRIPT = get_absolute_path(config.get('Paths', 'get_channels_script'))
 AUTO_FEE_SCRIPT = get_absolute_path(config.get('Paths', 'autofee_script'))
@@ -55,6 +56,7 @@ REBALANCER_SCRIPT = get_absolute_path(config.get('Paths', 'rebalancer_script'))
 CLOSE_CHANNEL_SCRIPT = get_absolute_path(config.get('Paths', 'close_channel_script'))
 SWAP_OUT_SCRIPT = get_absolute_path(config.get('Paths', 'swap_out_script'))
 MAGMAFLOW_SCRIPT = get_absolute_path(config.get('Paths', 'magmaflow_script'))
+HTLC_SCAN_SCRIPT = get_absolute_path(config.get('Paths', 'htlc_scan_script'))
 
 ENABLE_AUTOFEE = config.getboolean('Control', 'enable_autofee')
 ENABLE_AUTOFEE_V2 = config.getboolean('Control', 'enable_autofee_v2')
@@ -63,6 +65,7 @@ ENABLE_REBALANCER = config.getboolean('Control', 'enable_rebalancer')
 ENABLE_CLOSE_CHANNEL = config.getboolean('Control', 'enable_close_channel')
 ENABLE_SWAP_OUT = config.getboolean('Control', 'enable_swap_out')
 ENABLE_MAGMAFLOW = config.getboolean('Control', 'enable_magmaflow')
+ENABLE_HTLC_SCAN = config.getboolean('Control', 'enable_htlc_scan')
 
 db_lock = threading.Lock()
 
@@ -152,6 +155,13 @@ def main():
             thread7 = threading.Thread(target=run_script_independently, args=(magmaflow_main, SLEEP_MAGMAFLOW, MAGMAFLOW_SCRIPT))
             threads.append(thread7)
             thread7.start()
+        
+        if ENABLE_HTLC_SCAN:
+            logging.info("Starting HTLC Scan")
+            htlc_scan_main = import_main_function(HTLC_SCAN_SCRIPT)
+            thread8 = threading.Thread(target=run_script_independently, args=(htlc_scan_main, SLEEP_HTLC_SCAN, HTLC_SCAN_SCRIPT))
+            threads.append(thread8)
+            thread8.start()
 
         for thread in threads:
             thread.join()
