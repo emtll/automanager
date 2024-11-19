@@ -3,8 +3,10 @@ import os
 import configparser
 import sqlite3
 import logging
+import requests
 from datetime import datetime, timedelta
 from telebot import TeleBot
+from pathlib import Path
 
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 
@@ -17,6 +19,10 @@ def expand_path(path):
         return os.path.join(os.path.expanduser("~"), path)
     return os.path.expanduser(path)
 
+def get_expanded_path(key):
+    relative_path = config['lnd'][key]
+    return os.path.expanduser(os.path.join("~", relative_path))
+
 LNDG_DB_PATH = expand_path(config['Paths']['lndg_db_path'])
 BOS_PATH = expand_path(config['Paths']['bos_path'])
 DB_PATH = expand_path(config['Paths']['db_path'])
@@ -27,6 +33,9 @@ PERIOD = config['Autofee']['table_period']
 BOT_TOKEN = config['Telegram']['bot_token']
 CHAT_ID = config['Telegram']['chat_id']
 TELEGRAM_ENABLED = bool(BOT_TOKEN and CHAT_ID)
+lnd_rest_url = config["lnd"]["LND_REST_URL"]
+lnd_macaroon_path = get_expanded_path('LND_MACAROON_PATH')
+lnd_cert_path = get_expanded_path(('LND_CERT_PATH'))
 
 bot = TeleBot(BOT_TOKEN) if TELEGRAM_ENABLED else None
 conn = sqlite3.connect(DB_PATH)
@@ -38,6 +47,22 @@ def issue_bos_command(peer_pubkey, update_fee):
     command = f"{BOS_PATH} fees --set-fee-rate {update_fee} --to {peer_pubkey}"
     print_with_timestamp(f"Executing: {command}")
     os.system(command)
+
+def get_alias(lnd_rest_url, lnd_macaroon_path, lnd_cert_path):
+    try:
+        macaroon = Path(lnd_macaroon_path).read_bytes().hex()
+        headers = {"Grpc-Metadata-macaroon": macaroon}
+        response = requests.get(f"{lnd_rest_url}/v1/getinfo", headers=headers, verify=lnd_cert_path)
+
+        if response.status_code == 200:
+            data = response.json()
+            self_alias = data.get("alias", "Unknown")
+            return self_alias
+        else:
+            return f"Error: {response.status_code} - {response.text}"
+
+    except Exception as e:
+        return f"Unexpected error: {e}"
 
 def send_telegram_message(message):
     if not TELEGRAM_ENABLED:
@@ -328,7 +353,9 @@ def main():
             variation = 0.005
             percentage = variation
             if new_fee != local_fee_rate and abs(new_fee - local_fee_rate) > (local_fee_rate * variation):
-                message = (f"🔔 Changing fee for channel {alias}: from {local_fee_rate} ppm to {new_fee} ppm\n")
+                self_alias = get_alias(lnd_rest_url, lnd_macaroon_path, lnd_cert_path)
+                variation = ((new_fee - local_fee_rate) / local_fee_rate) * 100
+                message = (f"Node: {self_alias} \nFee for channel {alias} updated: {local_fee_rate} ppm ➡️ {new_fee} ppm | {variation:.2f}%")
                 send_telegram_message(message)
                 issue_bos_command(pubkey, new_fee)
             else:
