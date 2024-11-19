@@ -112,9 +112,9 @@ def main():
             thread2.start()
         
         if ENABLE_AUTOFEE_V2:
-            logging.info("Starting autofee")
+            logging.info("Starting autofee_v2")
             autofee_main = import_main_function(AUTO_FEE_V2_SCRIPT)
-            thread2 = threading.Thread(target=run_script_independently, args=(autofee_main, SLEEP_AUTOFEE, AUTO_FEE_SCRIPT))
+            thread2 = threading.Thread(target=run_script_independently, args=(autofee_main, SLEEP_AUTOFEE, AUTO_FEE_V2_SCRIPT))
             threads.append(thread2)
             thread2.start()
 
