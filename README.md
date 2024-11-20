@@ -11,10 +11,10 @@ Automation for Lightning nodes of LND implementation
   - Getting closed channels data summary for reports
   - Getting opened channels data for automation
   - Rebalancer configuration
-  - Swap outs
-  - Onchain funds (soon)
+  - Swap outs / Onchain funds management
+  - Magma auto-saler
+  - HTLC Scan
   - New channels opening (soon)
-  - Magma auto-saler (soon)
 
 # Index
 
