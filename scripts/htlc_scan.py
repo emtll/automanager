@@ -152,7 +152,7 @@ def main():
                 reconnect_peer(pubkey)
 
     if not htlcs_found:
-        message = f"🔎 Executing HTLC SCAN...\n\nNo critical HTLCs found\n{total_pending_htlcs} pending HTLC(s)"
+        message = f"🔎 Executing HTLC SCAN...\n\nNo critical HTLCs found\n{total_pending_htlcs} pending HTLCs"
         send_telegram_message(message)
 
 if __name__ == "__main__":
