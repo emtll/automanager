@@ -67,7 +67,7 @@ def send_telegram_message(message):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     data = {
         "chat_id": CHAT_ID,
-        "text": f"🤖 HTLC Scan {NODE_NAME}\n{message}",
+        "text": f"🤖 HTLC Scan {NODE_NAME}\n\n{message}",
         "parse_mode": "HTML",
     }
     try:
@@ -121,8 +121,6 @@ def main():
         logging.error(f"Error fetching block height: {e}")
         return
 
-    send_telegram_message("🔎 Executing HTLC SCAN...")
-
     list_channels_url = f"{LND_REST_URL}/v1/channels"
     try:
         response = requests.get(list_channels_url, headers=headers, verify=LND_CERT_PATH)
@@ -154,7 +152,7 @@ def main():
                 reconnect_peer(pubkey)
 
     if not htlcs_found:
-        message = f"No critical HTLCs found.\n{total_pending_htlcs} pending HTLC(s)"
+        message = f"🔎 Executing HTLC SCAN...\n\nNo critical HTLCs found\n{total_pending_htlcs} pending HTLC(s)"
         send_telegram_message(message)
 
 if __name__ == "__main__":
