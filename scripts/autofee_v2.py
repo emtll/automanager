@@ -197,8 +197,6 @@ def adjust_sink_fee(channel):
             new_fee = local_fee_rate + INCREASE_PPM
             logging.info(f"Increasing fee by {INCREASE_PPM} ppm for sink channel {channel['alias']} due to low outbound liquidity and recent rebalances")
             return min(new_fee, MAX_FEE_THRESHOLD)
-        elif rebal_rate == 0:
-            return 500
 
     # Decreases: outbound >= 10%
     if outbound_ratio >= 15.0:
@@ -206,8 +204,6 @@ def adjust_sink_fee(channel):
             new_fee = max(local_fee_rate - DECREASE_PPM, rebal_rate)
             logging.info(f"Decreasing fee by {DECREASE_PPM} ppm for sink channel {channel['alias']} with sufficient outbound liquidity")
             return new_fee
-        elif rebal_rate == 0:
-            return 500
 
     return local_fee_rate
 
@@ -232,10 +228,6 @@ def adjust_router_fee(channel):
             new_fee = local_fee_rate + INCREASE_PPM
             logging.info(f"Increasing fee by {INCREASE_PPM} ppm for router channel {channel['alias']} due to low outbound liquidity and recent rebalances")
             return min(new_fee, MAX_FEE_THRESHOLD)
-        
-        elif rebal_rate == 0:
-            logging.info(f"Setting fee to 500 ppm for router channel {channel['alias']} due to lack of rebalancing rate")
-            return 500
    
     # Decreases: outbound >= 15%
     if outbound_ratio >= 15.0:
@@ -243,10 +235,6 @@ def adjust_router_fee(channel):
             new_fee = max(local_fee_rate - DECREASE_PPM, rebal_rate)
             logging.info(f"Decreasing fee by {DECREASE_PPM} ppm for router channel {channel['alias']} with sufficient outbound liquidity")
             return new_fee
-        
-        elif rebal_rate == 0:
-            logging.info(f"Setting fee to 500 ppm for router channel {channel['alias']} due to lack of rebalancing rate")
-            return 500
 
         elif routed_amount < (channel_capacity * 0.5) and days_since_last_activity(last_outgoing) > 0.75:
             logging.info(f"Increasing fee by 50% for router channel {channel['alias']} due to low routing activity and liquidity")
