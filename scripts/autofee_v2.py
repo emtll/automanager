@@ -242,7 +242,10 @@ def adjust_router_fee(channel):
         
     else:
         logging.info(f"Setting minimum fee rate of 100 ppm for router channel {channel['alias']} with no other conditions met")
-        return 100 if total_cost_ppm == 0 else int(total_cost_ppm / 0.9)
+        if total_cost_ppm == 0:
+            return 100
+        elif outbound_ratio > 15:
+            return int(total_cost_ppm / 0.9)
 
 def adjust_source_fee(channel):
     total_routed_out = channel['total_routed_out']
