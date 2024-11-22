@@ -310,7 +310,7 @@ def main():
             print_with_timestamp(f"Channel {alias} ({pubkey}) is in the exclusion list, skipping...")
             continue
 
-        #if fee_change_checker(chan_id):
+        if fee_change_checker(chan_id):
             print_with_timestamp(f"Channel {alias} ({pubkey}) had a recent fee change, skipping...")
             continue
 
