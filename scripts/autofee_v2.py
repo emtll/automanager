@@ -192,14 +192,14 @@ def adjust_sink_fee(channel):
         return 2500
 
     # Increases: outbound < 15%
-    if outbound_ratio < 15.0:
+    if outbound_ratio < 10.0:
         if days_since_last_activity(last_rebalance) >= 0.50 and local_fee_rate < MAX_FEE_THRESHOLD:
             new_fee = local_fee_rate + INCREASE_PPM
             logging.info(f"Increasing fee by {INCREASE_PPM} ppm for sink channel {channel['alias']} due to low outbound liquidity and recent rebalances")
             return min(new_fee, MAX_FEE_THRESHOLD)
 
     # Decreases: outbound >= 10%
-    if outbound_ratio >= 15.0:
+    if outbound_ratio >= 10.0:
         if days_since_last_activity(last_outgoing) >= 0.5:
             new_fee = max(local_fee_rate - DECREASE_PPM, rebal_rate)
             logging.info(f"Decreasing fee by {DECREASE_PPM} ppm for sink channel {channel['alias']} with sufficient outbound liquidity")
@@ -218,19 +218,20 @@ def adjust_router_fee(channel):
     channel_capacity = channel['capacity']
     routed_amount = get_routed_amount_7_days(channel['chan_id'])
 
-    if last_rebalance and days_since_last_activity(last_rebalance) > 5 and outbound_ratio < 10:
+    if days_since_last_activity(last_rebalance) > 1.5 and outbound_ratio < 10:
+        new_fee = 1500
         logging.info(f"Setting fee rate to 1500 ppm for router channel {channel['alias']} due to inactivity in rebalances")
-        return 1500
+        return new_fee
 
-    # Increases: outbound < 15%
-    if outbound_ratio < 15.0:
+    # Increases: outbound < 10%
+    if outbound_ratio < 10.0:
         if days_since_last_activity(last_rebalance) >= 0.50 and local_fee_rate < MAX_FEE_THRESHOLD:
             new_fee = local_fee_rate + INCREASE_PPM
             logging.info(f"Increasing fee by {INCREASE_PPM} ppm for router channel {channel['alias']} due to low outbound liquidity and recent rebalances")
             return min(new_fee, MAX_FEE_THRESHOLD)
    
-    # Decreases: outbound >= 15%
-    if outbound_ratio >= 15.0:
+    # Decreases: outbound >= 10%
+    if outbound_ratio >= 10.0:
         if days_since_last_activity(last_outgoing) >= 0.5 and local_fee_rate > (rebal_rate / 0.8):
             new_fee = rebal_rate / 0.9
             logging.info(f"Decreasing fee to {new_fee} ppm for router channel {channel['alias']} with sufficient outbound liquidity and few outgoing")
@@ -246,11 +247,16 @@ def adjust_router_fee(channel):
             return int(local_fee_rate * 1.5)
         
     else:
-        logging.info(f"Setting minimum fee rate of 100 ppm for router channel {channel['alias']} with no other conditions met")
         if total_cost_ppm == 0:
-            return 100
-        elif outbound_ratio > 15 and total_cost_ppm is not 0:
-            return int(total_cost_ppm / 0.9)
+            new_fee = 100
+            logging.info(f"Setting minimum fee rate of 100 ppm for router channel {channel['alias']} with no other conditions met")
+            return new_fee
+        elif outbound_ratio > 10 and total_cost_ppm is not 0:
+            new_fee = total_cost_ppm / 0.9
+            logging.info(f"Setting fee rate to {new_fee} ppm for router channel {channel['alias']} with outbound > 10% and total cost > 0")
+            return new_fee
+    
+    return local_fee_rate
 
 def adjust_source_fee(channel):
     total_routed_out = channel['total_routed_out']
@@ -304,7 +310,7 @@ def main():
             print_with_timestamp(f"Channel {alias} ({pubkey}) is in the exclusion list, skipping...")
             continue
 
-        if fee_change_checker(chan_id):
+        #if fee_change_checker(chan_id):
             print_with_timestamp(f"Channel {alias} ({pubkey}) had a recent fee change, skipping...")
             continue
 
@@ -323,13 +329,17 @@ def main():
             continue
 
         if new_fee is not None and local_fee_rate is not None:
-            if new_fee != local_fee_rate:
+            if new_fee == local_fee_rate:
+                logging.warning(f"No changes will be made as the new fee is equal to the current fee of the {alias} peer.")
+            elif new_fee != local_fee_rate:
                 self_alias = get_alias(lnd_rest_url, lnd_macaroon_path, lnd_cert_path)
                 variation = ((new_fee - local_fee_rate) / local_fee_rate) * 100
                 message = (f"Node: {self_alias} \nFee for channel {alias} updated: {local_fee_rate} ppm ➡️ {new_fee} ppm | {variation:.2f}%")
                 send_telegram_message(message)
                 issue_bos_command(pubkey, new_fee)
+
         else:
+            print(new_fee, local_fee_rate)
             logging.warning(f"Skipping fee update for {alias} due to missing fee rate data")
 
     conn.close()
