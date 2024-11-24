@@ -341,12 +341,14 @@ def main():
         if new_fee is not None and local_fee_rate is not None:
             if new_fee == local_fee_rate:
                 logging.warning(f"No changes will be made as the new fee is equal to the current fee of the {alias} peer.")
+
             elif new_fee != local_fee_rate:
                 self_alias = get_alias(lnd_rest_url, lnd_macaroon_path, lnd_cert_path)
                 
                 if local_fee_rate > 0:
                     variation = ((new_fee - local_fee_rate) / local_fee_rate) * 100
                     message = (f"Node: {self_alias} \nFee for channel {alias} updated: {local_fee_rate} ppm ➡️ {new_fee} ppm | {variation:.2f}%")
+                    
                 else:
                     message = (f"Node: {self_alias} \nFee for channel {alias} updated: {local_fee_rate} ppm ➡️ {new_fee} ppm (No percentage change due to zero local fee rate)")
                 
