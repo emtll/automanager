@@ -191,7 +191,7 @@ def adjust_sink_fee(channel):
         logging.info(f"Setting fee rate to 2500 ppm for sink channel {channel['alias']} due to inactivity in rebalances")
         return 2500
 
-    # Increases: outbound < 15%
+    # Increases: outbound < 10%
     if outbound_ratio < 10.0:
         if days_since_last_activity(last_rebalance) >= 0.50 and local_fee_rate < MAX_FEE_THRESHOLD:
             new_fee = local_fee_rate + INCREASE_PPM
@@ -200,7 +200,11 @@ def adjust_sink_fee(channel):
 
     # Decreases: outbound >= 10%
     if outbound_ratio >= 10.0:
-        if days_since_last_activity(last_outgoing) >= 0.5:
+        if days_since_last_activity(last_outgoing) >= 0.5 and local_fee_rate > (rebal_rate / 0.9):
+            new_fee = rebal_rate / 0.9
+            logging.info(f"Decreasing fee by {DECREASE_PPM} ppm for sink channel {channel['alias']} with sufficient outbound liquidity")
+            return new_fee
+        elif days_since_last_activity(last_outgoing) >= 0.25:
             new_fee = max(local_fee_rate - DECREASE_PPM, rebal_rate)
             logging.info(f"Decreasing fee by {DECREASE_PPM} ppm for sink channel {channel['alias']} with sufficient outbound liquidity")
             return new_fee
@@ -232,7 +236,7 @@ def adjust_router_fee(channel):
    
     # Decreases: outbound >= 10%
     if outbound_ratio >= 10.0:
-        if days_since_last_activity(last_outgoing) >= 0.5 and local_fee_rate > (rebal_rate / 0.8):
+        if days_since_last_activity(last_outgoing) >= 0.5 and local_fee_rate > (rebal_rate / 0.9):
             new_fee = rebal_rate / 0.9
             logging.info(f"Decreasing fee to {new_fee} ppm for router channel {channel['alias']} with sufficient outbound liquidity and few outgoing")
             return new_fee
