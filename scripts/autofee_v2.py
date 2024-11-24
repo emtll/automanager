@@ -97,9 +97,6 @@ def hours_since_last_activity(last_activity):
         last_activity_date = datetime.strptime(last_activity, '%Y-%m-%d %H:%M:%S')
     return (datetime.now() - last_activity_date).total_seconds() / 3600
 
-def calculate_new_fee(total_cost_ppm):
-    return int(total_cost_ppm / 0.8)  # Adds 20% margin
-
 def is_excluded(pubkey, exclusion_list):
     return pubkey in [entry['pubkey'] for entry in exclusion_list]
 
@@ -200,8 +197,12 @@ def adjust_sink_fee(channel):
 
     # Decreases: outbound >= 10%
     if outbound_ratio >= 10.0:
-        if days_since_last_activity(last_outgoing) >= 0.5 and local_fee_rate > (rebal_rate / 0.9):
+        if days_since_last_activity(last_outgoing) >= 0.5 and local_fee_rate > (rebal_rate / 0.9) and rebal_rate != 0:
             new_fee = rebal_rate / 0.9
+            logging.info(f"Decreasing fee by {DECREASE_PPM} ppm for sink channel {channel['alias']} with sufficient outbound liquidity")
+            return new_fee
+        if days_since_last_activity(last_outgoing) >= 0.5 and local_fee_rate > rebal_rate and rebal_rate == 0:
+            new_fee = local_fee_rate - DECREASE_PPM
             logging.info(f"Decreasing fee by {DECREASE_PPM} ppm for sink channel {channel['alias']} with sufficient outbound liquidity")
             return new_fee
         elif days_since_last_activity(last_outgoing) >= 0.25:
@@ -236,12 +237,17 @@ def adjust_router_fee(channel):
    
     # Decreases: outbound >= 10%
     if outbound_ratio >= 10.0:
-        if days_since_last_activity(last_outgoing) >= 0.5 and local_fee_rate > (rebal_rate / 0.9):
+        if days_since_last_activity(last_outgoing) >= 0.5 and local_fee_rate > (rebal_rate / 0.9) and rebal_rate != 0:
             new_fee = rebal_rate / 0.9
             logging.info(f"Decreasing fee to {new_fee} ppm for router channel {channel['alias']} with sufficient outbound liquidity and few outgoing")
             return new_fee
+        
+        elif days_since_last_activity(last_outgoing) >= 0.5 and local_fee_rate > (rebal_rate / 0.9) and rebal_rate == 0:
+            new_fee = local_fee_rate - DECREASE_PPM
+            logging.info(f"Decreasing fee to {new_fee} ppm for router channel {channel['alias']} with sufficient outbound liquidity and few outgoing")
+            return new_fee
 
-        if days_since_last_activity(last_outgoing) >= 0.5:
+        elif days_since_last_activity(last_outgoing) >= 0.5:
             new_fee = max(local_fee_rate - DECREASE_PPM, rebal_rate)
             logging.info(f"Decreasing fee by {DECREASE_PPM} ppm for router channel {channel['alias']} with sufficient outbound liquidity")
             return new_fee
@@ -255,7 +261,7 @@ def adjust_router_fee(channel):
             new_fee = 100
             logging.info(f"Setting minimum fee rate of 100 ppm for router channel {channel['alias']} with no other conditions met")
             return new_fee
-        elif outbound_ratio > 10 and total_cost_ppm is not 0:
+        elif outbound_ratio > 10 and total_cost_ppm != 0:
             new_fee = total_cost_ppm / 0.9
             logging.info(f"Setting fee rate to {new_fee} ppm for router channel {channel['alias']} with outbound > 10% and total cost > 0")
             return new_fee
