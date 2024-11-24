@@ -48,7 +48,9 @@ def connect_lndg_db():
     return sqlite3.connect(LNDG_DB_PATH, timeout=30)
 
 def connect_db():
-    return sqlite3.connect(DB_PATH, timeout=30)
+    conn = sqlite3.connect(DB_PATH, timeout=30)
+    conn.row_factory = sqlite3.Row
+    return conn
 
 def create_table_if_not_exists():
     conn = connect_db()
@@ -76,14 +78,25 @@ def insert_quote(payment_quote_id, amount, currency, state):
     conn.commit()
     conn.close()
 
-def update_quote_state(payment_quote_id, new_state):
+def update_quote_state(payment_quote_id, new_state, payment_id):
+    conn = connect_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        UPDATE strike_onchain_withdrawals
+        SET state = ?, payment_quote_id = ?
+        WHERE payment_quote_id = ?
+    ''', (new_state, payment_id, payment_quote_id))
+    conn.commit()
+    conn.close()
+
+def update_payment_state(payment_id, new_state):
     conn = connect_db()
     cursor = conn.cursor()
     cursor.execute('''
         UPDATE strike_onchain_withdrawals
         SET state = ?
         WHERE payment_quote_id = ?
-    ''', (new_state, payment_quote_id))
+    ''', (new_state, payment_id))
     conn.commit()
     conn.close()
 
@@ -98,7 +111,7 @@ def get_pending_quote_amounts():
 
     total_pending_amount = 0
     for quote in pending_quotes:
-        total_pending_amount += int(float(quote[0]) * 100_000_000)
+        total_pending_amount += int(float(quote["amount"]) * 100_000_000)
     return total_pending_amount
 
 def get_onchain_balance():
@@ -264,9 +277,9 @@ def execute_payment_quote(payment_quote_id):
         logging.info(f"Payment executed successfully for quote {payment_quote_id}. Payment ID: {payment_id}")
         
         if payment_id and payment_id != payment_quote_id:
-            update_quote_state(payment_id, 'PENDING')
+            update_quote_state(payment_id, 'PENDING', payment_id)
         else:
-            update_quote_state(payment_quote_id, 'PENDING')
+            logging.error(f"Error while updating payment_id in database: {e}")
 
         return True
     except requests.exceptions.HTTPError as e:
@@ -325,7 +338,7 @@ def withdraw_to_btc_address(btc_address, amount):
 
         if payment_id:
             logging.info(f"Payment executed successfully. Payment ID: {payment_id}")
-            update_quote_state(payment_id, 'PENDING')
+            update_quote_state(payment_quote_id, 'PENDING', payment_id)
             logging.info(f"State updated in the database to PENDING with paymentId {payment_id}.")
         else:
             logging.error(f"Could not retrieve paymentId for quote {payment_quote_id}.")
@@ -346,16 +359,24 @@ def main():
         conn.close()
 
         for quote in pending_quotes:
-            payment_quote_id = quote[0]
-            payment_state = get_payment_status(payment_quote_id)
-            if payment_state == 'COMPLETED':
-                update_quote_state(payment_quote_id, 'COMPLETED')
-                logging.info(f"Payment {payment_quote_id} completed and state updated in the database.")
-            elif payment_state == 'FAILED':
-                update_quote_state(payment_quote_id, 'FAILED')
-                logging.info(f"Payment {payment_quote_id} failed and state updated in the database.")
-            else:
-                logging.info(f"Payment {payment_quote_id} is still pending.")
+            try:
+                payment_id = quote["payment_quote_id"]
+                logging.info(f"Processing payment with ID: {payment_id}")
+                payment_state = get_payment_status(payment_id)
+
+                if payment_state == 'COMPLETED':
+                    update_payment_state(payment_id, 'COMPLETED')
+                    logging.info(f"Payment {payment_id} completed and state updated in the database.")
+
+                elif payment_state == 'FAILED':
+                    update_payment_state(payment_id, 'FAILED')
+                    logging.info(f"Payment {payment_id} failed and state updated in the database.")
+
+                else:
+                    logging.info(f"Payment {payment_id} is still pending.")
+                    
+            except KeyError as e:
+                logging.error(f"Error accessing column in row: {dict(quote)}, error: {e}")
 
         logging.info("Starting onchain and Strike balance check...")
         current_onchain_balance = get_onchain_balance()
