@@ -198,13 +198,15 @@ def adjust_sink_fee(channel):
     # Decreases: outbound >= 10%
     if outbound_ratio >= 10.0:
         if days_since_last_activity(last_outgoing) >= 0.5 and local_fee_rate > (rebal_rate / 0.9) and rebal_rate != 0:
-            new_fee = rebal_rate / 0.9
+            new_fee = int(rebal_rate / 0.9)
             logging.info(f"Decreasing fee by {DECREASE_PPM} ppm for sink channel {channel['alias']} with sufficient outbound liquidity")
             return new_fee
+        
         if days_since_last_activity(last_outgoing) >= 0.5 and local_fee_rate > rebal_rate and rebal_rate == 0:
             new_fee = local_fee_rate - DECREASE_PPM
             logging.info(f"Decreasing fee by {DECREASE_PPM} ppm for sink channel {channel['alias']} with sufficient outbound liquidity")
             return new_fee
+        
         elif days_since_last_activity(last_outgoing) >= 0.25:
             new_fee = max(local_fee_rate - DECREASE_PPM, rebal_rate)
             logging.info(f"Decreasing fee by {DECREASE_PPM} ppm for sink channel {channel['alias']} with sufficient outbound liquidity")
@@ -238,7 +240,7 @@ def adjust_router_fee(channel):
     # Decreases: outbound >= 10%
     if outbound_ratio >= 10.0:
         if days_since_last_activity(last_outgoing) >= 0.5 and local_fee_rate > (rebal_rate / 0.9) and rebal_rate != 0:
-            new_fee = rebal_rate / 0.9
+            new_fee = int(rebal_rate / 0.9)
             logging.info(f"Decreasing fee to {new_fee} ppm for router channel {channel['alias']} with sufficient outbound liquidity and few outgoing")
             return new_fee
         
@@ -262,7 +264,7 @@ def adjust_router_fee(channel):
             logging.info(f"Setting minimum fee rate of 100 ppm for router channel {channel['alias']} with no other conditions met")
             return new_fee
         elif outbound_ratio > 10 and total_cost_ppm != 0:
-            new_fee = total_cost_ppm / 0.9
+            new_fee = int(total_cost_ppm / 0.9)
             logging.info(f"Setting fee rate to {new_fee} ppm for router channel {channel['alias']} with outbound > 10% and total cost > 0")
             return new_fee
     
@@ -346,7 +348,7 @@ def main():
                 self_alias = get_alias(lnd_rest_url, lnd_macaroon_path, lnd_cert_path)
                 
                 if local_fee_rate > 0:
-                    variation = ((new_fee - local_fee_rate) / local_fee_rate) * 100
+                    variation = float(((new_fee - local_fee_rate) / local_fee_rate) * 100)
                     message = (f"Node: {self_alias} \nFee for channel {alias} updated: {local_fee_rate} ppm ➡️ {new_fee} ppm | {variation:.2f}%")
                     
                 else:
