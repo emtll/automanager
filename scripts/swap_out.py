@@ -43,6 +43,7 @@ LN_ADDRESS = config['Swap_out']['strike_ln_address']
 MAX_FEE_RATE = int(config['Swap_out']['max_fee_rate'])
 PAYMENT_AMOUNT = int(config['Swap_out']['payment_amount'])
 MIN_STRIKE_WITHDRAWAL = int(config['Swap_out']['min_strike_withdrawal'])
+PERIOD = int(config['Get_channels_data']['PERIOD'])
 
 def connect_lndg_db():
     return sqlite3.connect(LNDG_DB_PATH, timeout=30)
@@ -188,7 +189,7 @@ def get_pending_onchain_withdrawals():
 def get_source_channels():
     conn = connect_db()
     cursor = conn.cursor()
-    cursor.execute("SELECT chan_id, outbound_liquidity, pubkey, alias FROM opened_channels_lifetime WHERE tag = 'source'")
+    cursor.execute(f"SELECT chan_id, outbound_liquidity, pubkey, alias FROM opened_channels_{PERIOD} WHERE tag = 'source'")
     channels = cursor.fetchall()
     conn.close()
     return channels
