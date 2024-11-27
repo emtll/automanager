@@ -189,7 +189,7 @@ def get_pending_onchain_withdrawals():
 def get_source_channels():
     conn = connect_db()
     cursor = conn.cursor()
-    cursor.execute(f"SELECT chan_id, outbound_liquidity, pubkey, alias FROM opened_channels_{PERIOD} WHERE tag = 'source'")
+    cursor.execute(f"SELECT chan_id, outbound_liquidity, pubkey, alias FROM opened_channels_{PERIOD}d WHERE tag = 'source'")
     channels = cursor.fetchall()
     conn.close()
     return channels
