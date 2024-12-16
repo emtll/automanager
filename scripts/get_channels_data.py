@@ -250,7 +250,7 @@ def upsert_channel_data(conn, data, table):
         total_revenue, revenue_ppm, total_cost, cost_ppm, rebal_rate, total_rebalanced_in, total_routed_out, total_routed_in, 
         assisted_revenue, assisted_revenue_ppm, profit, profit_ppm, profit_margin, sats_per_day_profit, sats_per_day_assisted, 
         apy, iapy, local_fee_rate, local_base_fee, remote_fee_rate, remote_base_fee, 
-        local_inbound_fee_rate, local_inbound_base_fee,  -- Novas colunas
+        local_inbound_fee_rate, local_inbound_base_fee,
         last_outgoing_activity, last_incoming_activity, last_rebalance
     ) 
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -284,8 +284,8 @@ def upsert_channel_data(conn, data, table):
         local_base_fee=excluded.local_base_fee,
         remote_fee_rate=excluded.remote_fee_rate,
         remote_base_fee=excluded.remote_base_fee,
-        local_inbound_fee_rate=excluded.local_inbound_fee_rate,  -- Atualização
-        local_inbound_base_fee=excluded.local_inbound_base_fee,  -- Atualização
+        local_inbound_fee_rate=excluded.local_inbound_fee_rate,
+        local_inbound_base_fee=excluded.local_inbound_base_fee,
         last_outgoing_activity=excluded.last_outgoing_activity,
         last_incoming_activity=excluded.last_incoming_activity,
         last_rebalance=excluded.last_rebalance
