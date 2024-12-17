@@ -389,12 +389,58 @@ def main():
             except KeyError as e:
                 logging.error(f"Error accessing column in row: {dict(quote)}, error: {e}")
 
+        current_onchain_balance = get_onchain_balance()
+        pending_onchain_withdrawals = get_pending_quote_amounts()
+        strike_balance = get_strike_balance()
+        total_onchain_balance = current_onchain_balance + pending_onchain_withdrawals
+        amount_needed_to_target = ONCHAIN_TARGET - total_onchain_balance
+
+        logging.info(f"Updated onchain balance: {current_onchain_balance} satoshis.")
+        logging.info(f"Updated pending onchain withdrawals: {pending_onchain_withdrawals} satoshis.")
+        logging.info(f"Updated total onchain balance: {total_onchain_balance} satoshis.")
+        logging.info(f"Amount needed to reach target: {amount_needed_to_target} satoshis.")
+
+        if total_onchain_balance < ONCHAIN_TARGET:
+            if (amount_needed_to_target >= MIN_STRIKE_WITHDRAWAL and
+                amount_needed_to_target <= WITHDRAW_AMOUNT_SATOSHIS and
+                strike_balance >= amount_needed_to_target):
+                amount_to_withdraw = amount_needed_to_target
+                logging.info(f"Withdrawing {amount_to_withdraw} satoshis to reach the onchain target.")
+                btc_address = generate_new_btc_address()
+                if btc_address:
+                    withdraw_to_btc_address(btc_address, amount_to_withdraw)
+                else:
+                    logging.error("Failed to generate BTC address for withdrawal.")
+            elif (amount_needed_to_target >= MIN_STRIKE_WITHDRAWAL and
+                  amount_needed_to_target > WITHDRAW_AMOUNT_SATOSHIS and
+                  strike_balance >= WITHDRAW_AMOUNT_SATOSHIS):
+                amount_to_withdraw = WITHDRAW_AMOUNT_SATOSHIS
+                logging.info(f"Withdrawing {amount_to_withdraw} satoshis to reach the onchain target.")
+                btc_address = generate_new_btc_address()
+                if btc_address:
+                    withdraw_to_btc_address(btc_address, amount_to_withdraw)
+                else:
+                    logging.error("Failed to generate BTC address for withdrawal.")
+            elif (amount_needed_to_target < MIN_STRIKE_WITHDRAWAL and
+                  strike_balance >= WITHDRAW_AMOUNT_SATOSHIS):
+                amount_to_withdraw = WITHDRAW_AMOUNT_SATOSHIS
+                logging.info(f"Withdrawing {amount_to_withdraw} satoshis to reach the onchain target.")
+                btc_address = generate_new_btc_address()
+                if btc_address:
+                    withdraw_to_btc_address(btc_address, amount_to_withdraw)
+                else:
+                    logging.error("Failed to generate BTC address for withdrawal.")
+        else:
+            logging.info("Insufficient Strike balance for withdrawal.")
+            
         logging.info("Starting onchain and Strike balance check...")
         current_onchain_balance = get_onchain_balance()
-        logging.info(f"Current onchain balance: {current_onchain_balance} satoshis.")
+        strike_balance = get_strike_balance()
         pending_onchain_withdrawals = get_pending_quote_amounts()
-        logging.info(f"Total pending onchain withdrawals: {pending_onchain_withdrawals} satoshis.")
         total_onchain_balance = current_onchain_balance + pending_onchain_withdrawals
+        logging.info(f"Current Strike balance: {strike_balance} satoshis.")
+        logging.info(f"Current onchain balance: {current_onchain_balance} satoshis.")
+        logging.info(f"Total pending onchain withdrawals: {pending_onchain_withdrawals} satoshis.")
         logging.info(f"Total onchain balance: {total_onchain_balance} satoshis. Target: {ONCHAIN_TARGET} satoshis.")
 
         if total_onchain_balance >= ONCHAIN_TARGET:
@@ -474,49 +520,6 @@ def main():
 
             logging.info("Payment attempts completed for all channels.")
 
-        current_onchain_balance = get_onchain_balance()
-        pending_onchain_withdrawals = get_pending_quote_amounts()
-        strike_balance = get_strike_balance()
-        total_onchain_balance = current_onchain_balance + pending_onchain_withdrawals
-        amount_needed_to_target = ONCHAIN_TARGET - total_onchain_balance
-
-        logging.info(f"Updated onchain balance: {current_onchain_balance} satoshis.")
-        logging.info(f"Updated pending onchain withdrawals: {pending_onchain_withdrawals} satoshis.")
-        logging.info(f"Updated total onchain balance: {total_onchain_balance} satoshis.")
-        logging.info(f"Amount needed to reach target: {amount_needed_to_target} satoshis.")
-
-        if total_onchain_balance < ONCHAIN_TARGET:
-            if (amount_needed_to_target >= MIN_STRIKE_WITHDRAWAL and
-                amount_needed_to_target <= WITHDRAW_AMOUNT_SATOSHIS and
-                strike_balance >= amount_needed_to_target):
-                amount_to_withdraw = amount_needed_to_target
-                logging.info(f"Withdrawing {amount_to_withdraw} satoshis to reach the onchain target.")
-                btc_address = generate_new_btc_address()
-                if btc_address:
-                    withdraw_to_btc_address(btc_address, amount_to_withdraw)
-                else:
-                    logging.error("Failed to generate BTC address for withdrawal.")
-            elif (amount_needed_to_target >= MIN_STRIKE_WITHDRAWAL and
-                  amount_needed_to_target > WITHDRAW_AMOUNT_SATOSHIS and
-                  strike_balance >= WITHDRAW_AMOUNT_SATOSHIS):
-                amount_to_withdraw = WITHDRAW_AMOUNT_SATOSHIS
-                logging.info(f"Withdrawing {amount_to_withdraw} satoshis to reach the onchain target.")
-                btc_address = generate_new_btc_address()
-                if btc_address:
-                    withdraw_to_btc_address(btc_address, amount_to_withdraw)
-                else:
-                    logging.error("Failed to generate BTC address for withdrawal.")
-            elif (amount_needed_to_target < MIN_STRIKE_WITHDRAWAL and
-                  strike_balance >= WITHDRAW_AMOUNT_SATOSHIS):
-                amount_to_withdraw = WITHDRAW_AMOUNT_SATOSHIS
-                logging.info(f"Withdrawing {amount_to_withdraw} satoshis to reach the onchain target.")
-                btc_address = generate_new_btc_address()
-                if btc_address:
-                    withdraw_to_btc_address(btc_address, amount_to_withdraw)
-                else:
-                    logging.error("Failed to generate BTC address for withdrawal.")
-        else:
-            logging.info("Insufficient Strike balance for withdrawal.")
 
         logging.info(f"Pausing for {time_to_sleep} seconds until the next check.")
         time.sleep(time_to_sleep)
