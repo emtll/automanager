@@ -235,7 +235,7 @@ def get_strike_balance():
         for balance in data:
             if balance['currency'] == 'BTC':
                 balance_satoshis = int(float(balance['available']) * 100_000_000)
-                logging.info(f"Available BTC balance: {balance_satoshis} satoshis")
+                logging.info(f"Available Strike balance: {balance_satoshis} satoshis")
                 break
 
         return balance_satoshis
