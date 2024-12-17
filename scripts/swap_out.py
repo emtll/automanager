@@ -34,6 +34,7 @@ def expand_path(path):
 LNDG_DB_PATH = expand_path(config['Paths']['lndg_db_path'])
 DB_PATH = expand_path(config['Paths']['db_path'])
 BOS_PATH = expand_path(config['Paths']['bos_path'])
+EXCLUSION_FILE_PATH = expand_path(config['Paths']['excluded_peers_path'])
 STRIKE_API_KEY = config['Swap_out']['strike_api_key']
 OUTBOUND_THRESHOLD = float(config['Swap_out']['outbound_threshold'])
 ONCHAIN_TARGET = int(config['Swap_out']['onchain_target'])
@@ -114,6 +115,9 @@ def get_pending_quote_amounts():
     for quote in pending_quotes:
         total_pending_amount += int(float(quote["amount"]) * 100_000_000)
     return total_pending_amount
+
+def is_excluded(pubkey, exclusion_list):
+    return pubkey in [entry['pubkey'] for entry in exclusion_list]
 
 def get_onchain_balance():
     result = subprocess.run(['lncli', 'listunspent'], capture_output=True, text=True)
@@ -359,8 +363,13 @@ def main():
         pending_quotes = cursor.fetchall()
         conn.close()
 
+        with open(EXCLUSION_FILE_PATH, 'r') as exclusion_file:
+            exclusion_data = json.load(exclusion_file)
+            exclusion_list = exclusion_data.get('EXCLUSION_LIST', [])
+
         for quote in pending_quotes:
             try:
+
                 payment_id = quote["payment_quote_id"]
                 logging.info(f"Processing payment with ID: {payment_id}")
                 payment_state = get_payment_status(payment_id)
@@ -397,6 +406,7 @@ def main():
                 invoice = create_invoice(strike_balance)
                 logging.info(f"Invoice created: {invoice}")
 
+
                 if invoice:
                     payment_quote_id = create_lightning_payment_quote(invoice)
                     logging.info(f"Payment quote ID generated: {payment_quote_id}")
@@ -419,12 +429,18 @@ def main():
 
             source_channels = get_source_channels()
             channels_above_threshold = [channel for channel in source_channels if channel[1] > OUTBOUND_THRESHOLD]
+            pubkey = [channel for channel in source_channels if channel[2]]
             logging.info(f"Channels above threshold: {len(channels_above_threshold)}")
 
             with concurrent.futures.ThreadPoolExecutor(max_workers=len(channels_above_threshold)) as executor:
                 futures = {}
                 for channel in channels_above_threshold:
-                    chan_id, outbound_liquidity, pubkey, alias = channel
+                    pubkey, alias, chan_id = channel[2], channel[3], channel[0]
+
+                    if is_excluded(pubkey, exclusion_list):
+                        logging.info(f"Channel {chan_id}, alias: {alias} is in the exclusion list, skipping...")
+                        continue
+
                     logging.info(f"Sending BOS payment to {LN_ADDRESS} through channel {alias}.")
                     future = executor.submit(send_payment_via_bos, LN_ADDRESS, PAYMENT_AMOUNT, MAX_FEE_RATE, pubkey, alias)
                     futures[future] = alias
