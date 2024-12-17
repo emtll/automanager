@@ -200,7 +200,7 @@ def get_source_channels():
     return channels
 
 def send_payment_via_bos(ln_address, amount, fee_rate, peer_pubkey, alias):
-    command = f"{BOS_PATH} send {ln_address} --amount {amount} --max-fee-rate {fee_rate} --out {peer_pubkey}"
+    command = f"{BOS_PATH} send {ln_address} --amount {amount} --avoid-high-fee-routes --max-fee-rate {fee_rate} --out {peer_pubkey}"
     logging.info(f"Executing command: {command}")
     
     result = subprocess.run(command, shell=True, capture_output=True, text=True)
@@ -431,11 +431,6 @@ def main():
             source_channels = get_source_channels()
             channels_above_threshold = [channel for channel in source_channels if channel[1] > OUTBOUND_THRESHOLD]
             pubkey = [channel for channel in source_channels if channel[2]]
-            logging.info(f"Channels above threshold: {len(channels_above_threshold)}")
-
-
-            source_channels = get_source_channels()
-            channels_above_threshold = [channel for channel in source_channels if channel[1] > OUTBOUND_THRESHOLD]
             logging.info(f"Channels above threshold: {len(channels_above_threshold)}")
 
             def process_channel(pubkey, alias):
