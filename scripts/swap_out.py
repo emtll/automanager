@@ -435,10 +435,8 @@ def main():
             
         logging.info("Starting onchain and Strike balance check...")
         current_onchain_balance = get_onchain_balance()
-        strike_balance = get_strike_balance()
         pending_onchain_withdrawals = get_pending_quote_amounts()
         total_onchain_balance = current_onchain_balance + pending_onchain_withdrawals
-        logging.info(f"Current Strike balance: {strike_balance} satoshis.")
         logging.info(f"Current onchain balance: {current_onchain_balance} satoshis.")
         logging.info(f"Total pending onchain withdrawals: {pending_onchain_withdrawals} satoshis.")
         logging.info(f"Total onchain balance: {total_onchain_balance} satoshis. Target: {ONCHAIN_TARGET} satoshis.")
