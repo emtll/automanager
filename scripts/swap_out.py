@@ -40,6 +40,7 @@ OUTBOUND_THRESHOLD = float(config['Swap_out']['outbound_threshold'])
 ONCHAIN_TARGET = int(config['Swap_out']['onchain_target'])
 WITHDRAW_AMOUNT_SATOSHIS = int(config['Swap_out']['withdraw_amount_satoshis'])
 CHECK_INTERVAL_SECONDS = int(config['Swap_out']['check_interval_seconds'])
+MAX_RETRIES = int(config['Swap_out']['max_retries'])
 LN_ADDRESS = config['Swap_out']['strike_ln_address']
 MAX_FEE_RATE = int(config['Swap_out']['max_fee_rate'])
 PAYMENT_AMOUNT = int(config['Swap_out']['payment_amount'])
@@ -432,6 +433,32 @@ def main():
             pubkey = [channel for channel in source_channels if channel[2]]
             logging.info(f"Channels above threshold: {len(channels_above_threshold)}")
 
+
+            source_channels = get_source_channels()
+            channels_above_threshold = [channel for channel in source_channels if channel[1] > OUTBOUND_THRESHOLD]
+            logging.info(f"Channels above threshold: {len(channels_above_threshold)}")
+
+            def process_channel(pubkey, alias):
+                while True:
+                    retries = 0
+                    while retries < MAX_RETRIES:
+                        try:
+                            logging.info(f"Sending BOS payment to {LN_ADDRESS} through channel {alias}. Attempt {retries+1}/{MAX_RETRIES}.")
+                            result = send_payment_via_bos(LN_ADDRESS, PAYMENT_AMOUNT, MAX_FEE_RATE, pubkey, alias)
+                            if result:
+                                logging.info(f"Payment successfully sent via channel {alias}. Continuing...")
+                                break
+                            else:
+                                logging.error(f"Failed to send payment via BOS through channel {alias}. Retrying...")
+                        except Exception as e:
+                            logging.error(f"Error executing BOS payment via channel {alias}: {e}")
+                        retries += 1
+                        time.sleep(CHECK_INTERVAL_SECONDS)
+                    
+                    if retries == MAX_RETRIES:
+                        logging.error(f"Channel {alias} ({pubkey}) failed after {MAX_RETRIES} retries. Sleeping {CHECK_INTERVAL_SECONDS} s before retrying...")
+                        time.sleep(CHECK_INTERVAL_SECONDS * 2)
+
             with concurrent.futures.ThreadPoolExecutor(max_workers=len(channels_above_threshold)) as executor:
                 futures = {}
                 for channel in channels_above_threshold:
@@ -441,22 +468,16 @@ def main():
                         logging.info(f"Channel {chan_id}, alias: {alias} is in the exclusion list, skipping...")
                         continue
 
-                    logging.info(f"Sending BOS payment to {LN_ADDRESS} through channel {alias}.")
-                    future = executor.submit(send_payment_via_bos, LN_ADDRESS, PAYMENT_AMOUNT, MAX_FEE_RATE, pubkey, alias)
-                    futures[future] = alias
+                    futures[executor.submit(process_channel, pubkey, alias)] = alias
 
                 for future in concurrent.futures.as_completed(futures):
                     alias = futures[future]
                     try:
-                        result = future.result()
-                        if result:
-                            logging.info(f"Payment successfully sent via channel {alias}.")
-                        else:
-                            logging.error(f"Error sending payment via BOS through channel {alias}.")
+                        future.result()
                     except Exception as e:
-                        logging.error(f"Error executing BOS payment via channel {alias}: {e}")
+                        logging.error(f"Unexpected error for channel {alias}: {e}")
 
-            time_to_sleep = CHECK_INTERVAL_SECONDS
+            logging.info("Payment attempts completed for all channels.")
 
         current_onchain_balance = get_onchain_balance()
         pending_onchain_withdrawals = get_pending_quote_amounts()
