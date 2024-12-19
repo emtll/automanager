@@ -354,173 +354,113 @@ def withdraw_to_btc_address(btc_address, amount):
     except Exception as err:
         logging.error(f"Error during withdrawal: {err}")
 
+def process_pending_withdrawals():
+    logging.info("Checking status of pending withdrawals...")
+    conn = connect_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT payment_quote_id FROM strike_onchain_withdrawals WHERE state = 'PENDING'")
+    pending_quotes = cursor.fetchall()
+    conn.close()
+
+    for quote in pending_quotes:
+        try:
+            payment_id = quote["payment_quote_id"]
+            payment_state = get_payment_status(payment_id)
+            if payment_state in ['COMPLETED', 'FAILED']:
+                update_payment_state(payment_id, payment_state)
+                logging.info(f"Payment {payment_id} marked as {payment_state}.")
+            else:
+                logging.info(f"Payment {payment_id} is still pending.")
+        except KeyError as e:
+            logging.error(f"Error accessing column in row: {dict(quote)}, error: {e}")
+
+def withdraw_onchain(amount):
+    btc_address = generate_new_btc_address()
+    if btc_address:
+        withdraw_to_btc_address(btc_address, amount)
+        logging.info(f"Successfully withdrew {amount} satoshis to BTC address {btc_address}.")
+    else:
+        logging.error("Failed to generate BTC address for withdrawal.")
+
+def check_and_withdraw_onchain():
+    current_balance = get_onchain_balance()
+    pending_withdrawals = get_pending_quote_amounts()
+    strike_balance = get_strike_balance()
+    total_balance = current_balance + pending_withdrawals + strike_balance
+    needed_amount = ONCHAIN_TARGET - total_balance
+    logging.info(f"Pending Withdrawals: {pending_withdrawals} satoshis")
+    logging.info(f"Total onchain balance: {total_balance}, needed to target: {needed_amount}.")
+
+    if total_balance < ONCHAIN_TARGET:
+        if needed_amount >= MIN_STRIKE_WITHDRAWAL and strike_balance >= needed_amount:
+            withdraw_onchain(needed_amount)
+        elif strike_balance >= WITHDRAW_AMOUNT_SATOSHIS:
+            withdraw_onchain(WITHDRAW_AMOUNT_SATOSHIS)
+        else:
+            logging.info("Insufficient Strike balance for withdrawal.")
+    else:
+        logging.info("Onchain target reached. Checking for LN withdrawals...")
+        process_strike_ln_withdrawal(strike_balance)
+
+def process_strike_ln_withdrawal(strike_balance):
+    if strike_balance > 0:
+        invoice = create_invoice(strike_balance)
+        if invoice and (payment_quote_id := create_lightning_payment_quote(invoice)):
+            if execute_payment_quote(payment_quote_id):
+                logging.info(f"Withdrawn {strike_balance} sats from Strike to LN.")
+            else:
+                logging.error("Error executing Strike payment quote.")
+
+def process_bos_payments(exclusion_list):
+    source_channels = get_source_channels()
+    channels = [channel for channel in source_channels if channel[1] > OUTBOUND_THRESHOLD]
+
+    logging.info(f"Starting BOS payments for {len(channels)} channels.")
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(channels)) as executor:
+        futures = {}
+        for channel in channels:
+            pubkey, alias = channel[2], channel[3]
+            if is_excluded(pubkey, exclusion_list):
+                logging.info(f"Channel {alias} excluded. Skipping...")
+                continue
+            futures[executor.submit(process_channel, pubkey, alias)] = alias
+
+        for future in concurrent.futures.as_completed(futures):
+            alias = futures[future]
+            try:
+                future.result()
+            except Exception as e:
+                logging.error(f"Error processing BOS payment for channel {alias}: {e}")
+
+def process_channel(pubkey, alias):
+    retries = 0
+    while retries < MAX_RETRIES:
+        logging.info(f"Attempting BOS payment via {alias}. Retry {retries + 1}.")
+        if send_payment_via_bos(LN_ADDRESS, PAYMENT_AMOUNT, MAX_FEE_RATE, pubkey, alias):
+            logging.info(f"Payment sent successfully via channel {alias}.")
+            return
+        retries += 1
+        time.sleep(CHECK_INTERVAL_SECONDS)
+    logging.error(f"Channel {alias} failed after {MAX_RETRIES} retries.")
+
 def main():
     create_table_if_not_exists()
     while True:
-        logging.info("Checking status of pending withdrawals...")
-        conn = connect_db()
-        cursor = conn.cursor()
-        cursor.execute("SELECT payment_quote_id FROM strike_onchain_withdrawals WHERE state = 'PENDING'")
-        pending_quotes = cursor.fetchall()
-        conn.close()
+        process_pending_withdrawals()
 
-        with open(EXCLUSION_FILE_PATH, 'r') as exclusion_file:
-            exclusion_data = json.load(exclusion_file)
-            exclusion_list = exclusion_data.get('EXCLUSION_LIST', [])
+        with open(EXCLUSION_FILE_PATH, 'r') as f:
+            exclusion_list = json.load(f).get('EXCLUSION_LIST', [])
 
-        for quote in pending_quotes:
-            try:
+        check_and_withdraw_onchain()
 
-                payment_id = quote["payment_quote_id"]
-                logging.info(f"Processing payment with ID: {payment_id}")
-                payment_state = get_payment_status(payment_id)
-
-                if payment_state == 'COMPLETED':
-                    update_payment_state(payment_id, 'COMPLETED')
-                    logging.info(f"Payment {payment_id} completed and state updated in the database.")
-
-                elif payment_state == 'FAILED':
-                    update_payment_state(payment_id, 'FAILED')
-                    logging.info(f"Payment {payment_id} failed and state updated in the database.")
-
-                else:
-                    logging.info(f"Payment {payment_id} is still pending.")
-                    
-            except KeyError as e:
-                logging.error(f"Error accessing column in row: {dict(quote)}, error: {e}")
-
-        current_onchain_balance = get_onchain_balance()
-        pending_onchain_withdrawals = get_pending_quote_amounts()
-        strike_balance = get_strike_balance()
-        total_onchain_balance = current_onchain_balance + pending_onchain_withdrawals
-        amount_needed_to_target = ONCHAIN_TARGET - total_onchain_balance
-
-        logging.info(f"Updated onchain balance: {current_onchain_balance} satoshis.")
-        logging.info(f"Updated pending onchain withdrawals: {pending_onchain_withdrawals} satoshis.")
-        logging.info(f"Updated total onchain balance: {total_onchain_balance} satoshis.")
-        logging.info(f"Amount needed to reach target: {amount_needed_to_target} satoshis.")
-
-        if total_onchain_balance < ONCHAIN_TARGET:
-            if (amount_needed_to_target >= MIN_STRIKE_WITHDRAWAL and
-                amount_needed_to_target <= WITHDRAW_AMOUNT_SATOSHIS and
-                strike_balance >= amount_needed_to_target):
-                amount_to_withdraw = amount_needed_to_target
-                logging.info(f"Withdrawing {amount_to_withdraw} satoshis to reach the onchain target.")
-                btc_address = generate_new_btc_address()
-                if btc_address:
-                    withdraw_to_btc_address(btc_address, amount_to_withdraw)
-                else:
-                    logging.error("Failed to generate BTC address for withdrawal.")
-            elif (amount_needed_to_target >= MIN_STRIKE_WITHDRAWAL and
-                  amount_needed_to_target > WITHDRAW_AMOUNT_SATOSHIS and
-                  strike_balance >= WITHDRAW_AMOUNT_SATOSHIS):
-                amount_to_withdraw = WITHDRAW_AMOUNT_SATOSHIS
-                logging.info(f"Withdrawing {amount_to_withdraw} satoshis to reach the onchain target.")
-                btc_address = generate_new_btc_address()
-                if btc_address:
-                    withdraw_to_btc_address(btc_address, amount_to_withdraw)
-                else:
-                    logging.error("Failed to generate BTC address for withdrawal.")
-            elif (amount_needed_to_target < MIN_STRIKE_WITHDRAWAL and
-                  strike_balance >= WITHDRAW_AMOUNT_SATOSHIS):
-                amount_to_withdraw = WITHDRAW_AMOUNT_SATOSHIS
-                logging.info(f"Withdrawing {amount_to_withdraw} satoshis to reach the onchain target.")
-                btc_address = generate_new_btc_address()
-                if btc_address:
-                    withdraw_to_btc_address(btc_address, amount_to_withdraw)
-                else:
-                    logging.error("Failed to generate BTC address for withdrawal.")
+        current_balance = get_onchain_balance()
+        if current_balance < ONCHAIN_TARGET:
+            process_bos_payments(exclusion_list)
         else:
-            logging.info("Insufficient Strike balance for withdrawal.")
-            
-        logging.info("Starting onchain and Strike balance check...")
-        current_onchain_balance = get_onchain_balance()
-        pending_onchain_withdrawals = get_pending_quote_amounts()
-        total_onchain_balance = current_onchain_balance + pending_onchain_withdrawals
-        logging.info(f"Current onchain balance: {current_onchain_balance} satoshis.")
-        logging.info(f"Total pending onchain withdrawals: {pending_onchain_withdrawals} satoshis.")
-        logging.info(f"Total onchain balance: {total_onchain_balance} satoshis. Target: {ONCHAIN_TARGET} satoshis.")
+            logging.info("Onchain target achieved. Pausing checks.")
 
-        if total_onchain_balance >= ONCHAIN_TARGET:
-            logging.info("Onchain balance target reached. Checking Strike balance for LN withdrawal...")
-
-            strike_balance = get_strike_balance()
-            logging.info(f"Available Strike balance: {strike_balance} satoshis.")
-
-            if strike_balance > 0:
-                invoice = create_invoice(strike_balance)
-                logging.info(f"Invoice created: {invoice}")
-
-
-                if invoice:
-                    payment_quote_id = create_lightning_payment_quote(invoice)
-                    logging.info(f"Payment quote ID generated: {payment_quote_id}")
-
-                    if payment_quote_id:
-                        if execute_payment_quote(payment_quote_id):
-                            logging.info(f"{strike_balance} sats withdrawn from Strike to LN via invoice.")
-                        else:
-                            logging.error("Error executing Strike payment quote.")
-                    else:
-                        logging.error("Error creating payment quote via Strike.")
-                else:
-                    logging.error("Error creating LN invoice.")
-            else:
-                logging.info("Insufficient Strike balance for LN withdrawal.")
-
-            time_to_sleep = 3600
-        else:
-            logging.info(f"Onchain balance of {total_onchain_balance} below target of {ONCHAIN_TARGET}. Starting BOS payments...")
-
-            source_channels = get_source_channels()
-            channels_above_threshold = [channel for channel in source_channels if channel[1] > OUTBOUND_THRESHOLD]
-            pubkey = [channel for channel in source_channels if channel[2]]
-            logging.info(f"Channels above threshold: {len(channels_above_threshold)}")
-
-            def process_channel(pubkey, alias):
-                while True:
-                    retries = 0
-                    while retries < MAX_RETRIES:
-                        try:
-                            logging.info(f"Sending BOS payment to {LN_ADDRESS} through channel {alias}. Attempt {retries+1}/{MAX_RETRIES}.")
-                            result = send_payment_via_bos(LN_ADDRESS, PAYMENT_AMOUNT, MAX_FEE_RATE, pubkey, alias)
-                            if result:
-                                logging.info(f"Payment successfully sent via channel {alias}. Continuing...")
-                                break
-                            else:
-                                logging.error(f"Failed to send payment via BOS through channel {alias}. Retrying...")
-                        except Exception as e:
-                            logging.error(f"Error executing BOS payment via channel {alias}: {e}")
-                        retries += 1
-                        time.sleep(CHECK_INTERVAL_SECONDS)
-                    
-                    if retries == MAX_RETRIES:
-                        logging.error(f"Channel {alias} ({pubkey}) failed after {MAX_RETRIES} retries. Sleeping {CHECK_INTERVAL_SECONDS} s before retrying...")
-                        time.sleep(CHECK_INTERVAL_SECONDS * 2)
-
-            with concurrent.futures.ThreadPoolExecutor(max_workers=len(channels_above_threshold)) as executor:
-                futures = {}
-                for channel in channels_above_threshold:
-                    pubkey, alias, chan_id = channel[2], channel[3], channel[0]
-
-                    if is_excluded(pubkey, exclusion_list):
-                        logging.info(f"Channel {chan_id}, alias: {alias} is in the exclusion list, skipping...")
-                        continue
-
-                    futures[executor.submit(process_channel, pubkey, alias)] = alias
-
-                for future in concurrent.futures.as_completed(futures):
-                    alias = futures[future]
-                    try:
-                        future.result()
-                    except Exception as e:
-                        logging.error(f"Unexpected error for channel {alias}: {e}")
-
-            logging.info("Payment attempts completed for all channels.")
-
-
-        logging.info(f"Pausing for {time_to_sleep} seconds until the next check.")
-        time.sleep(time_to_sleep)
+        logging.info(f"Pausing for {CHECK_INTERVAL_SECONDS} seconds.")
+        time.sleep(CHECK_INTERVAL_SECONDS)
         
 if __name__ == "__main__":
     main()
