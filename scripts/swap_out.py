@@ -65,19 +65,23 @@ def create_table_if_not_exists():
             amount TEXT,
             currency TEXT,
             state TEXT,
+            btc_address TEXT,  -- Nova coluna
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
         )
+    ''')
+    cursor.execute('''
+        ALTER TABLE strike_onchain_withdrawals ADD COLUMN btc_address TEXT;
     ''')
     conn.commit()
     conn.close()
 
-def insert_quote(payment_quote_id, amount, currency, state):
+def insert_quote(payment_quote_id, amount, currency, state, btc_address):
     conn = connect_db()
     cursor = conn.cursor()
     cursor.execute('''
-        INSERT OR IGNORE INTO strike_onchain_withdrawals (payment_quote_id, amount, currency, state)
-        VALUES (?, ?, ?, ?)
-    ''', (payment_quote_id, amount, currency, state))
+        INSERT OR IGNORE INTO strike_onchain_withdrawals (payment_quote_id, amount, currency, state, btc_address)
+        VALUES (?, ?, ?, ?, ?)
+    ''', (payment_quote_id, amount, currency, state, btc_address))
     conn.commit()
     conn.close()
 
@@ -206,7 +210,7 @@ def send_payment_via_bos(ln_address, amount, fee_rate, peer_pubkey, alias):
     result = subprocess.run(command, shell=True, capture_output=True, text=True)
     
     if result.returncode == 0:
-        logging.info(f"Payment of {amount} sats successfully sent via BOS through channel {alias}.")
+        logging.info(f"Payment of {amount} sats successfully sent via BOS through channel {alias}. STDOUT: {result.stdout}")
         return True
     else:
         logging.error(f"Error sending payment via BOS through channel {alias}. STDOUT: {result.stdout}, STDERR: {result.stderr}")
@@ -333,7 +337,7 @@ def withdraw_to_btc_address(btc_address, amount):
 
         logging.info(f"Onchain quote generated successfully: {payment_quote_id}")
 
-        insert_quote(payment_quote_id, amount_str, currency_str, 'CREATED')
+        insert_quote(payment_quote_id, amount_str, currency_str, 'CREATED', btc_address)
 
         execute_payment_url = f'https://api.strike.me/v1/payment-quotes/{payment_quote_id}/execute'
         execute_response = requests.patch(execute_payment_url, headers=headers)
