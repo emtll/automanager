@@ -65,7 +65,7 @@ def create_table_if_not_exists():
             amount TEXT,
             currency TEXT,
             state TEXT,
-            btc_address TEXT,  -- Nova coluna
+            btc_address TEXT,
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     ''')
