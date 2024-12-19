@@ -1,4 +1,5 @@
 import concurrent.futures
+import re
 import os
 import time
 import subprocess
@@ -207,10 +208,18 @@ def send_payment_via_bos(ln_address, amount, fee_rate, peer_pubkey, alias):
     result = subprocess.run(command, shell=True, capture_output=True, text=True)
     
     if result.returncode == 0:
-        logging.info(f"Payment of {amount} sats successfully sent via BOS through channel {alias}. STDOUT: {result.stdout}")
-        return True
+        fee_match = re.search(r"fee:\s+(\d+)", result.stdout)
+        fees = int(fee_match.group(1)) if fee_match else 0
+        logging.info(f"Payment of {amount} sats successfully sent via BOS through channel {alias} fees paid: {fees}")
+        return True, fees
     else:
-        logging.error(f"Error sending payment via BOS through channel {alias}. STDOUT: {result.stdout}, STDERR: {result.stderr}")
+        error_match = re.search(r"err:\s+-\s+(\d+)\s+-\s+([^\n]+)", result.stderr)
+        needed_fee_match = re.search(r"needed_fee:\s+(\d+)", result.stderr)
+        error_code = error_match.group(1) if error_match else "Unknown"
+        error_message = error_match.group(2) if error_match else result.stderr.strip()
+        needed_fee = int(needed_fee_match.group(1)) if needed_fee_match else 0
+        
+        logging.error(f"Error sending payment via BOS through channel {alias}. Code: {error_code}, Error: {error_message}, Needed Fee: {needed_fee} sats")
         return False
 
 def create_invoice(amount_sats):
