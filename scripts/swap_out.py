@@ -69,9 +69,6 @@ def create_table_if_not_exists():
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     ''')
-    cursor.execute('''
-        ALTER TABLE strike_onchain_withdrawals ADD COLUMN btc_address TEXT;
-    ''')
     conn.commit()
     conn.close()
 
