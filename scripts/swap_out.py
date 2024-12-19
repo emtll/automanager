@@ -218,9 +218,8 @@ def send_payment_via_bos(ln_address, amount, fee_rate, peer_pubkey, alias):
         error_code = error_match.group(1) if error_match else "Unknown"
         error_message = error_match.group(2) if error_match else result.stderr.strip()
         needed_fee = int(needed_fee_match.group(1)) if needed_fee_match else 0
-        
         logging.error(f"Error sending payment via BOS through channel {alias}. Code: {error_code}, Error: {error_message}, Needed Fee: {needed_fee} sats")
-        return False
+        return False, needed_fee
 
 def create_invoice(amount_sats):
     result = subprocess.run(['lncli', 'addinvoice', '--amt', str(amount_sats)], capture_output=True, text=True)
@@ -392,6 +391,15 @@ def withdraw_onchain(amount):
     else:
         logging.error("Failed to generate BTC address for withdrawal.")
 
+def calculate_total_balance():
+    current_balance = get_onchain_balance()
+    pending_withdrawals = get_pending_quote_amounts()
+    strike_balance = get_strike_balance()
+    total_balance = current_balance + pending_withdrawals + strike_balance
+
+    return total_balance
+
+
 def check_and_withdraw_onchain():
     current_balance = get_onchain_balance()
     pending_withdrawals = get_pending_quote_amounts()
@@ -446,29 +454,44 @@ def process_channel(pubkey, alias):
     retries = 0
     while retries < MAX_RETRIES:
         logging.info(f"Attempting BOS payment via {alias}. Retry {retries + 1}.")
-        if send_payment_via_bos(LN_ADDRESS, PAYMENT_AMOUNT, MAX_FEE_RATE, pubkey, alias):
-            logging.info(f"Payment sent successfully via channel {alias}.")
+        success, fees = send_payment_via_bos(LN_ADDRESS, PAYMENT_AMOUNT, MAX_FEE_RATE, pubkey, alias)
+        
+        if success:
+            logging.info(f"Payment sent successfully via channel {alias} paid fees: {fees} sats.")
             return
+        else:
+            logging.warning(f"Payment attempt {retries + 1} via channel {alias} failed.")
+
         retries += 1
         time.sleep(CHECK_INTERVAL_SECONDS)
+
     logging.error(f"Channel {alias} failed after {MAX_RETRIES} retries.")
 
 def main():
     create_table_if_not_exists()
+    onchain_target_achieved = False
+    
     while True:
         process_pending_withdrawals()
 
         with open(EXCLUSION_FILE_PATH, 'r') as f:
             exclusion_list = json.load(f).get('EXCLUSION_LIST', [])
 
-        check_and_withdraw_onchain()
+        total_balance = calculate_total_balance()
 
-        current_balance = get_onchain_balance()
-        if current_balance < ONCHAIN_TARGET:
-            process_bos_payments(exclusion_list)
+        if total_balance >= ONCHAIN_TARGET:
+            if not onchain_target_achieved:
+                logging.info(f"Onchain target of {ONCHAIN_TARGET} sats achieved. Monitoring paused.")
+                onchain_target_achieved = True
         else:
-            logging.info("Onchain target achieved. Pausing checks.")
+            if onchain_target_achieved:
+                logging.info(f"Onchain balance {total_balance} sats dropped below target of {ONCHAIN_TARGET} sats. Resuming operations.")
+                onchain_target_achieved = False
 
+            check_and_withdraw_onchain()
+            process_bos_payments(exclusion_list)
+
+        logging.info(f"Current balance: {total_balance} sats. Target: {ONCHAIN_TARGET} sats.")
         logging.info(f"Pausing for {CHECK_INTERVAL_SECONDS} seconds.")
         time.sleep(CHECK_INTERVAL_SECONDS)
         
